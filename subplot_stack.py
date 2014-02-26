@@ -2,10 +2,13 @@ from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 from math import ceil, floor
-
+import warnings
 #from mpl_toolkits.axes_grid1 import ImageGrid
 
-def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],hspace=0,wspace=0,use_yticks=False,use_xticks=True,enumerate_subplots=False,ytick_bins=None,xtick_bins=None):
+def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],
+                  hspace=0,wspace=0,use_yticks=False,use_xticks=True,
+                  enumerate_subplots=False,ytick_bins=None,xtick_bins=None,
+                  ylabels=None, xlabels=None,legends=None):
     """ Stack a series of 1D plots
         
         support for calls to an existing fig is still experimental.  should 
@@ -15,9 +18,31 @@ def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],h
     x=np.asanyarray(x).squeeze()
     Y=np.asanyarray(Y).squeeze()
     
-    if x.ndim>1:
-        raise ValueError("x must have only one non-singleton dimension")
+    if x.ndim > 1 and x.shape[1]>x.shape[0]:
+        x = x.T
+    if Y.ndim > 1 and Y.shape[1]>Y.shape[0]:
+        Y = Y.T
+        
     
+    if x.ndim>1:
+        if (x.shape[1]!=1) and (x.shape[1]!=Y.shape[1]):
+            raise ValueError("x must either match the shape of Y or have only one non-singleton dimension")
+        
+        if x.shape[1]==1:
+            single_x=True
+            unequal_x = False
+        else:
+            single_x=False
+            #if columns off x are different can't share the same x-axis
+            unequal_x = np.sum(np.diff(x,axis=1))>0        
+
+            if use_xticks and unequal_x:
+                #make sure there is room for the x-ticks
+                hspace = max(hspace,0.2) 
+    else:
+        single_x=True
+        unequal_x = False
+        
     if Y.ndim==1:
         Y=Y[:,np.newaxis]
     if Y.ndim>2:
@@ -54,10 +79,16 @@ def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],h
     else:
         use_existing_fig=True
         axes_list=fig.axes
-    
+        
     cnt=0;
     for r in range(nrows):
         for c in range(ncols):
+            
+            if single_x:
+                x_current=x
+            else:
+                x_current=x[:,cnt]
+                
             #axes_list.append(plt.subplot2grid((nrows,ncols),(r,c),colspan=1,rowspan=1,sharex=axes_list[0]))
             if not use_existing_fig:
                 axes_list.append(plt.subplot2grid((nrows,ncols),(r,c),colspan=1,rowspan=1))
@@ -72,13 +103,23 @@ def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],h
                 ax.hold(True)
                 
             if is_complex:
-                ax.plot(x,Y[:,cnt].real,colors[0],x,Y[:,cnt].imag,colors[1])
+                ax.plot(x_current,Y[:,cnt].real,colors[0],x,Y[:,cnt].imag,colors[1])
             else:
-                ax.plot(x,Y[:,cnt],colors[0])
+                ax.plot(x_current,Y[:,cnt],colors[0])
                 
             if enumerate_subplots: #number the subplots
                 ax.set_ylabel('{}   '.format(cnt),rotation='horizontal')
                 #ax.set_ylabel('Y[:,{}]'.format(cnt),rotation='vertical')
+                
+            if ylabels and (len(ylabels)>=cnt):
+                if enumerate_subplots:
+                    warnings.warn("enumerate_subplots option overridden by ylabels")
+                ax.ylabel=ylabels[cnt]
+            if xlabels and (len(xlabels)>=cnt):
+                ax.xlabel=xlabels[cnt]
+            if legends and (len(legends)>=cnt):
+                ax.legend((legends[cnt],))
+                
             cnt+=1
                
             if use_xticks:
@@ -86,8 +127,10 @@ def subplot_stack(x,Y,fig=None,ncols=None,nrows=None,title='',colors=['k','b'],h
                     ax.locator_params(axis='x',nbins=xtick_bins)
                 if ncols>1 and wspace<0.25: # help avoid y-ticks overlap by hiding the bottom tick
                     ax.set_xticks(ax.get_xticks()[1:])  
-            if r<(nrows-1) or (not use_xticks):   #remove xticks from all but bottommost
+            if (r<(nrows-1) and (not unequal_x)) or (not use_xticks):   #remove xticks from all but bottommost
                     plt.setp(ax.get_xticklabels(), visible=False) 
+            
+
                 
             if use_yticks:
                 if ytick_bins:
