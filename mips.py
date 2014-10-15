@@ -2,13 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PyIRT.graph import montager
 
-
-def plot_mips(x,stack_direction='h',open_newfig=False,**kwargs):
-    
-    #TODO: shrink borders, etc...
-
-    #MIPs don't necessarily have matching size, so manually pad the axes rather than just using montager
-
+def calc_mips(x,stack_direction='h'):
     if stack_direction=='h':
         
         axes_to_pad = np.arange(0,x.ndim-1,dtype=np.int)
@@ -43,6 +37,17 @@ def plot_mips(x,stack_direction='h',open_newfig=False,**kwargs):
         x3=np.pad(np.max(np.abs(x),axis=2),(xpad_widths[0],xpad_widths[1]),mode='constant',constant_values=0)
         xout=np.concatenate((xout,x2),axis=0)
         xout=np.concatenate((xout,x3),axis=0)
+        
+    return xout
+    
+    
+def plot_mips(x,stack_direction='h',open_newfig=False,**kwargs):
+    
+    #TODO: shrink borders, etc...
+
+    #MIPs don't necessarily have matching size, so manually pad the axes rather than just using montager
+
+    xout = calc_mips(x, stack_direction=stack_direction)
 
     if open_newfig:
         plt.figure()

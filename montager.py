@@ -62,7 +62,8 @@ def montager4d(xi,axis=-1,row2=None,col2=None,aspect2=None,**montager_args):
         montage2_args['aspect']=aspect2
     return montager(m_out,**montage2_args)
         
-def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False, flipx=False, flipy=False, flipz=False):
+def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False, 
+             flipx=False, flipy=False, flipz=False, output_grid_size=False):
     """ tile a 3D or 4D image into a single 2D montage
     
     Parameters
@@ -85,6 +86,8 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False, f
         reverse y-axis indices?
     flipz : bool, optional
         reverse z-axis indices?
+    output_grid_size : bool, optional
+        if true, the number of rows and columns will also be returned
     
     Returns
     -------
@@ -193,7 +196,10 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False, f
         ix = iz - iy * col;
         xo[iy*ny:(iy+1)*ny,ix*nx:(ix+1)*nx] = xi[:,:,iz].T
             
-    return xo
+    if output_grid_size:
+        return (xo, row, col)        
+    else:
+        return xo
     
 def montager_test():
     t = (20, 30, 5);
