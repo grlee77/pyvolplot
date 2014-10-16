@@ -11,7 +11,36 @@ from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
 from .mips import calc_mips
 from PyIRT.utils import is_string_like
 
-def volshow(x,ax=None,mode=None,cplx_to_abs=True,show_lines=False,mask_nan=True,**kwargs):
+def masked_overlay(image, overlay_cmap=plt.cm.hot, vmin=None, vmax=None, 
+                   alpha_image = None, maskval=0): #, f=None):
+                       
+    """ overlay another volume via alpha transparency """
+    if vmin is None:
+        vmin = image.min()
+    if vmax is None:
+        vmax = image.max() 
+    if alpha_image is None:
+        if maskval is not None:
+            alpha_mask = (image==maskval)
+    else:
+        alpha_mask = np.ones_like(alpha_image)
+    image = (np.clip(image,vmin,vmax)-vmin)/(vmax-vmin)
+    image_RGBA = overlay_cmap(image)  #convert to RGBA
+    if alpha_mask is not None:
+        if alpha_image is None:
+            image_RGBA[...,-1][alpha_mask] = 0  #set
+        else:
+            image_RGBA[...,-1] = image_RGBA[...,-1]*alpha_image
+#    if f is None:
+#        f = plt.figure()
+    plt.imshow(image_RGBA,cmap=overlay_cmap,vmin=vmin,vmax=vmax)
+    plt.colorbar(shrink=0.9)
+    plt.axis('off')
+    plt.axis('image')
+    return
+#    return f
+    
+def volshow(x,ax=None,mode=None,cplx_to_abs=True,show_lines=False,line_color='w',mask_nan=True,**kwargs):
     #TODO: add overlay volumes
 
     x=np.asanyarray(x)
@@ -129,9 +158,12 @@ def volshow(x,ax=None,mode=None,cplx_to_abs=True,show_lines=False,mask_nan=True,
         kwargs['interpolation']='nearest'
         
     ax.imshow(x,**kwargs)
+    
+    #if requested, draw lines dividing the cells of the montage
     if show_lines and (mode.lower() in ['m','montage']):
         #TODO: add lines for MIP or centerplane cases
-        add_lines(x, color='w',ncells_horizontal=ncols, ncells_vertical=nrows)
+        add_lines(x, color=line_color, ncells_horizontal=ncols, ncells_vertical=nrows)
+        
     ax.axis('off')
     ax.axis('image')
 
