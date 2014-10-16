@@ -4,15 +4,15 @@ from aniso2iso import array_to_iso, resample_image
 from montager import montager, montager4d
 from subplot_stack import subplot_stack
 from centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
+from volshow import volshow
 from mips import plot_mips
 
-#modify some default matplotlib behavior
+# modify some default matplotlib behavior
 mpl.rcParams['image.cmap']='gray'
 mpl.rcParams['image.interpolation']='nearest'
-#mpl.rcParams['text.usetex']=True
-
-#mpl.rcParams['axes.grid']=False
-#mpl.rcParams['axes.color_cycle', ['b', 'g', 'r', 'c', 'm', 'y', 'k']]
+# mpl.rcParams['text.usetex']=True
+# mpl.rcParams['axes.grid']=False
+# mpl.rcParams['axes.color_cycle', ['b', 'g', 'r', 'c', 'm', 'y', 'k']]
 
 
 """

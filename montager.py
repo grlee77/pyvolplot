@@ -32,6 +32,19 @@ def add_lines(e, color='w', ncells_horizontal=1, ncells_vertical=1):
             plt.axis('image')
 
 
+def _calc_rows(nx, ny, nz, row=None, col=None, aspect=1.4):
+    """ utility to calculate the desired number of rows & columns for the
+    image montage """
+    if not col:
+        if not row:
+            col = np.round(np.sqrt(nz * ny / nx * aspect))
+        else:
+            col = np.ceil(nz / row)
+    if not row:
+        row = np.ceil(nz / col)
+    return int(row), int(col)
+    
+    
 def montager4d(
         xi, axis=-1, row2=None, col2=None, aspect2=None, **montager_args):
     """ nested montager for 4D data.
@@ -70,19 +83,6 @@ def montager4d(
         return montager(m_out, **montage2_args)
     else:
         return (montager(m_out, **montage2_args)[0], row2, col2)
-
-
-def _calc_rows(nx, ny, nz, row=None, col=None, aspect=1.4):
-    if not col:
-        if not row:
-            col = np.round(np.sqrt(nz * ny / nx * aspect))
-        else:
-            col = np.ceil(nz / row)
-
-    if not row:
-        row = np.ceil(nz / col)
-
-    return int(row), int(col)
 
 
 def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,

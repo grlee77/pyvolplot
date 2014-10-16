@@ -86,16 +86,16 @@ def volshow(x, mode=None, ax=None, cplx_to_abs=True, show_lines=False,
     x = np.asanyarray(x)
     if np.iscomplexobj(x):
         if cplx_to_abs:
-            print("magnitude of complex data displayed")
+            # print("magnitude of complex data displayed")
             x = np.abs(x)
         else:
-            print("only real part of complex data displayed")
+            warnings.warn("only real part of complex data displayed")
             x = np.real(x)
 
     if mask_nan:
         nanmask = np.isnan(x)
         if np.any(nanmask):
-            print("NaN values found... setting them to 0 for display")
+            warnings.warn("NaN values found... setting them to 0 for display")
         x[nanmask] = 0
 
     # if input is RGB or RGBA reduce number of dimensions to tile by 1
@@ -146,7 +146,6 @@ def volshow(x, mode=None, ax=None, cplx_to_abs=True, show_lines=False,
                 montage_kwargs[k] = kwargs.pop(k)
 
         montage_kwargs['output_grid_size'] = True
-        print(montage_kwargs)
         montage_kwargs['xi'] = x
 
         if 'transpose' not in montage_kwargs:
@@ -196,7 +195,6 @@ def volshow(x, mode=None, ax=None, cplx_to_abs=True, show_lines=False,
         x = calc_mips(**mip_kwargs)
 
     elif mode.lower() in ['i', 'imshow']:
-        print("imshow mode")
         if nd > 2:
             raise ValueError("imshow mode only works for 2D input")
     elif mode.lower() in ['g', 'imagegrid']:
