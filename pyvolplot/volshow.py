@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from .montager import montager, montager4d, add_lines, _calc_rows
 from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
 from .mips import calc_mips
-from PyIRT.utils import is_string_like
+from matplotlib import  is_string_like
 
 
 def masked_overlay(image, overlay_cmap=plt.cm.hot, vmin=None, vmax=None,
