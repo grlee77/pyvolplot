@@ -110,6 +110,12 @@ def volshow(x, mode=None, ax=None, cplx_to_abs=True, show_lines=False,
             "input only has {} dimensions. converting to 2D".format(nd))
         x = np.atleast_2d(x)
 
+    if mode is None:
+        if nd >= 3:
+            mode = 'montage'
+        else:
+            mode = 'imshow'
+            
     # generate a new figure if an existing axis was not passed in
     if ax is None:
         f = plt.figure()
@@ -117,11 +123,6 @@ def volshow(x, mode=None, ax=None, cplx_to_abs=True, show_lines=False,
     elif mode.lower() in ['g', 'imagegrid']:
         raise ValueError("User supplied axis not supported in ImageGrid mode")
 
-    if mode is None:
-        if nd >= 3:
-            mode = 'montage'
-        else:
-            mode = 'imshow'
 
     if not is_string_like(mode):
         raise ValueError("mode must be string-like")
