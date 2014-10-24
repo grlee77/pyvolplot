@@ -15,40 +15,6 @@ from .utils import add_inner_title
 from matplotlib import is_string_like
 
 
-def masked_overlay(image, overlay_cmap=plt.cm.hot, vmin=None, vmax=None,
-                   alpha_image=None, maskval=0):  # , f=None):
-    """ overlay another volume via alpha transparency """
-
-    if vmin is None:
-        vmin = image.min()
-    if vmax is None:
-        vmax = image.max()
-    if alpha_image is None:
-        if maskval is not None:
-            alpha_mask = (image == maskval)
-    else:
-        alpha_mask = np.ones_like(alpha_image)
-    image = (np.clip(image, vmin, vmax) - vmin) / (vmax - vmin)
-    image_RGBA = overlay_cmap(image)  # convert to RGBA
-    if alpha_mask is not None:
-        if alpha_image is None:
-            image_RGBA[..., -1][alpha_mask] = 0  # set
-        else:
-            image_RGBA[..., -1] = image_RGBA[..., -1] * alpha_image
-#    if f is None:
-#        f = plt.figure()
-    plt.imshow(image_RGBA, cmap=overlay_cmap, vmin=vmin, vmax=vmax)
-    plt.colorbar(shrink=0.9)
-    plt.axis('off')
-    plt.axis('image')
-    return
-#    return f
-
-# fig,(ax1,ax2)=plt.subplots(1,2);
-# volshow(T1vols[...,4],ax=ax1,mode='c',show_lines=True);
-# volshow(T1vols[...,4],ax=ax2,mode='m',show_lines=True)
-
-
 def _to_list(y, n):
     """ For list input y, check that len(y) == n.
     For scalar input y, duplicate y into a list of length(n)
@@ -117,6 +83,31 @@ def _parse_mip_kwargs(kwargs, omit=[], list_only=False):
     return mip_kwargs
 
 
+def _parse_fig_kwargs(kwargs):
+    """ separate out arguments specific to _apply_fig_kwargs """
+    fig_kwargs = {}
+    fig_keys = ['figsize', 'dpi', 'facecolor', 'edgecolor']
+    for key in fig_keys:
+        if key in kwargs:
+            fig_kwargs[key] = kwargs.pop(key)
+    return fig_kwargs
+
+
+def _apply_fig_kwargs(fig, fig_kwargs):
+    dpi = fig_kwargs.get('dpi', None)
+    figsize = fig_kwargs.get('figsize', None)
+    facecolor = fig_kwargs.get('facecolor', None)
+    edgecolor = fig_kwargs.get('edgecolor', None)
+    if dpi:
+        fig.set_dpi(dpi)
+    if figsize:
+        fig.set_size_inches(figsize)
+    if facecolor:
+        fig.set_facecolor(facecolor)
+    if edgecolor:
+        fig.set_edgecolor(edgecolor)
+
+
 def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             show_lines=False, line_color='w', mask_nan=False, notick=False,
             **kwargs):
@@ -164,6 +155,14 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     ----------------
     isRGB : bool, optional
         if True and last dimension is size 3 or 4, treat input as a color image
+    figsize : list or tuple, optional
+        Desired size for the figure (in inches), defaults to rc figure.figsize
+    dpi : float, optional
+        dots per inch for the figure, defaults to rc figure.dpi
+    facecolor : str, optional
+        figure background color, defaults to rf figure.facecolor
+    edgecolor : str, optional
+        figure border color, defaults to rf figure.edgecolor
     grid_labels : list of str, optional
         optional kw_arg for subfigure labels when mode='imagegrid'.
     grid_label_kwargs : dict, optional
@@ -177,6 +176,9 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         AxesImage object returned by imshow
 
     """
+
+    # separate out figure-specific kwargs
+    fig_kwargs = _parse_fig_kwargs(kwargs)
 
     if isinstance(x, (list, tuple)):
         # support inputing a list of volumes to each be placed into its own
@@ -208,7 +210,6 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             axes = axes.ravel(order='C')[:len(x)]
             im_list = []
             isRGB = kwargs.pop('isRGB', False)
-            figsize = kwargs.pop('figsize', None)
 
             # check list dimensions or create list from any non-list inputs
             mode = _to_list(mode, len(x))
@@ -277,9 +278,11 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                              show_lines=show_lines[idx],
                              line_color=line_color[idx],
                              mask_nan=mask_nan[idx], notick=notick[idx],
-                             isRGB=isRGB_subplot, figsize=figsize,
-                             **kwargs_subplot)
+                             isRGB=isRGB_subplot, **kwargs_subplot)
                 im_list.append(im)
+            fig = im_list[0].get_figure()
+            _apply_fig_kwargs(fig, fig_kwargs)
+
             return im_list
 
     x = np.asanyarray(x)
@@ -475,7 +478,6 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     kwargs.pop('grid_labels', None)
     kwargs.pop('grid_label_kwargs', None)
 
-    figsize = kwargs.pop('figsize', None)
     if isRGB:
         # matshow doesn't support color images
         im = ax.imshow(x, **kwargs)
@@ -508,8 +510,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         else:
             ax.tick_params(axis='both', color='w')
 
-    if figsize:
-        fig.set_size_inches(figsize)
+    _apply_fig_kwargs(fig, fig_kwargs)
 
     return im
 
@@ -523,5 +524,10 @@ def test_volshow_list():
             isRGB=[True, False, 0], mode=['i', 'm', 'm'], transpose=False)
 
     volshow([cat, coins, cat, cat],
-            isRGB=[1, 0, 0, 0], mode=['i', 'm', 'm', 'g'], transpose=False)
+            isRGB=[1, 0, 0, 0], mode=['i', 'm', 'm', 'g'], transpose=False,
+            grid_labels=[[], [], [], ['R', 'G', 'B']])
 
+    # test figure-wide properties
+    volshow([cat, coins, cat, cat],
+            isRGB=[1, 0, 0, 0], mode=['i', 'm', 'm', 'g'], transpose=False,
+            facecolor='k', edgecolor='w', figsize=(24, 24), dpi=40)
