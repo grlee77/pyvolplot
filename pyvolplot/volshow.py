@@ -94,7 +94,7 @@ def _parse_centerplane_kwargs(kwargs, isRGB=False, omit=[], list_only=False):
         if o in centerplanes_arg_list:
             centerplanes_arg_list.remove(o)
     if list_only:
-        return montage_args
+        return centerplanes_arg_list
     centerplane_kwargs = {}
     for k in centerplanes_arg_list:
         if k in kwargs:
@@ -109,7 +109,7 @@ def _parse_mip_kwargs(kwargs, omit=[], list_only=False):
         if o in mips_arg_list:
             mips_arg_list.remove(o)
     if list_only:
-        return montage_args
+        return mips_arg_list
     mip_kwargs = {}
     for k in mips_arg_list:
         if k in kwargs:
