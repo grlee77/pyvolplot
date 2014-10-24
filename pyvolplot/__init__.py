@@ -6,10 +6,12 @@ from subplot_stack import subplot_stack
 from centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
 from volshow import volshow
 from mips import plot_mips
+from utils import add_inner_title
+from overlay import masked_overlay
 
 # modify some default matplotlib behavior
-mpl.rcParams['image.cmap']='gray'
-mpl.rcParams['image.interpolation']='nearest'
+mpl.rcParams['image.cmap'] = 'gray'
+mpl.rcParams['image.interpolation'] = 'nearest'
 # mpl.rcParams['text.usetex']=True
 # mpl.rcParams['axes.grid']=False
 # mpl.rcParams['axes.color_cycle', ['b', 'g', 'r', 'c', 'm', 'y', 'k']]
