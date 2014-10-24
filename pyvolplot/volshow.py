@@ -208,6 +208,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             axes = axes.ravel(order='C')[:len(x)]
             im_list = []
             isRGB = kwargs.pop('isRGB', False)
+            figsize = kwargs.pop('figsize', None)
 
             # check list dimensions or create list from any non-list inputs
             mode = _to_list(mode, len(x))
@@ -218,10 +219,8 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             notick = _to_list(notick, len(x))
 
             # support lists of other kwargs arguments as well...
-            print("kwargs={}".format(kwargs))
             for key in kwargs:
                 kwargs[key] = _to_list(kwargs[key], len(x))
-            print("kwargs={}".format(kwargs))
 
             for idx, xi in enumerate(x):
                 if isRGB:
@@ -244,8 +243,6 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                 kwargs_subplot = {}
                 for key in kwargs:
                     kwargs_subplot[key] = kwargs[key][idx]
-                print("kwargs_subplot={}".format(kwargs_subplot))
-                print("kwargs_subplot={}".format(kwargs_subplot))
 
                 # get list of kwargs specific to the current mode
                 if mode[idx].lower() in ['m', 'montage']:
@@ -275,13 +272,13 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                 if mode[idx].lower() not in ['p', 'mips']:
                     _parse_mip_kwargs(kwargs_subplot, omit=omit)
 
-                print("kwargs_subplot={}".format(kwargs_subplot))
                 im = volshow(xi, mode=mode[idx], ax=axes[idx],
                              cplx_to_abs=cplx_to_abs[idx],
                              show_lines=show_lines[idx],
                              line_color=line_color[idx],
                              mask_nan=mask_nan[idx], notick=notick[idx],
-                             isRGB=isRGB_subplot, **kwargs_subplot)
+                             isRGB=isRGB_subplot, figsize=figsize,
+                             **kwargs_subplot)
                 im_list.append(im)
             return im_list
 
@@ -478,6 +475,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     kwargs.pop('grid_labels', None)
     kwargs.pop('grid_label_kwargs', None)
 
+    figsize = kwargs.pop('figsize', None)
     if isRGB:
         # matshow doesn't support color images
         im = ax.imshow(x, **kwargs)
@@ -510,6 +508,9 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         else:
             ax.tick_params(axis='both', color='w')
 
+    if figsize:
+        fig.set_size_inches(figsize)
+
     return im
 
 
@@ -523,3 +524,4 @@ def test_volshow_list():
 
     volshow([cat, coins, cat, cat],
             isRGB=[1, 0, 0, 0], mode=['i', 'm', 'm', 'g'], transpose=False)
+
