@@ -131,10 +131,10 @@ def array_to_iso(data, zooms, new_zooms=None, affine=None, order=0,
         new_zooms = list(new_zooms)
 
     if affine is None:
-        data = resample_image(data, zooms, new_zooms, affine, order=0, mode=mode,
-                              cval=cval)
+        data = resample_image(data, zooms, new_zooms, affine, order=0,
+                              mode=mode, cval=cval)
         return data
     else:
-        data, new_affine = resample_image(data, zooms, new_zooms, affine, order=0,
-                                          mode=mode, cval=cval)
+        data, new_affine = resample_image(data, zooms, new_zooms, affine,
+                                          order=0, mode=mode, cval=cval)
         return data, new_affine
