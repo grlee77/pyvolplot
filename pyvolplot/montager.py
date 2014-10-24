@@ -43,8 +43,8 @@ def _calc_rows(nx, ny, nz, row=None, col=None, aspect=1.4):
     if not row:
         row = np.ceil(nz / col)
     return int(row), int(col)
-    
-    
+
+
 def montager4d(
         xi, axis=-1, row2=None, col2=None, aspect2=None, **montager_args):
     """ nested montager for 4D data.
@@ -203,7 +203,10 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,
             xi = xi[:, ::-1]
         if not transpose:
             xi = xi.T
-        return xi
+        if output_grid_size:
+            return xi, 1, 1
+        else:
+            return xi
 
     if xi.ndim == 4:
         col = n3

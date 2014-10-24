@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import ceil, floor
 import warnings
-#from mpl_toolkits.axes_grid1 import ImageGrid
+# from mpl_toolkits.axes_grid1 import ImageGrid
 
 
 def subplot_stack(x, Y, fig=None, ncols=None, nrows=None, title='',
