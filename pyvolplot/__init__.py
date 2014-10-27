@@ -4,7 +4,7 @@ from aniso2iso import array_to_iso, resample_image
 from montager import montager, montager4d
 from subplot_stack import subplot_stack
 from centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
-from volshow import volshow
+from _volshow import volshow
 from mips import plot_mips
 from utils import add_inner_title
 from overlay import masked_overlay

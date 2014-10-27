@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
+import mpl_toolkits.axes_grid1.axes_divider
 
 from .montager import montager, montager4d, add_lines, _calc_rows
 from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
@@ -200,14 +201,21 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             if ax is None:
                 # Call volshow() for each individual volume
                 srow, scol = _calc_rows(1.0, 1.0, len(x))
-                # TODO: support aspect in _calc_rows?
-                fig, axes = plt.subplots(srow, scol)
-                # disable display of unused axes
-                for n in range(len(x), len(fig.axes)):
-                    fig.axes[n].set_axis_off()
+                if False:  # use plt.subplots
+                    # TODO: support aspect in _calc_rows?
+                    fig, axes = plt.subplots(srow, scol)
+                    # disable display of unused axes
+                    for n in range(len(x), len(fig.axes)):
+                        fig.axes[n].set_axis_off()
+                    # reshape ndarray of axes to 1D
+                    axes = axes.ravel(order='C')
+                else:  # use ImageGrid
+                    fig = plt.figure()
+                    axes = ImageGrid(fig, 111, nrows_ncols=(srow, scol),
+                                     axes_pad=.05)
 
             # reshape ndarray of axes to 1D and truncate to length of x
-            axes = axes.ravel(order='C')[:len(x)]
+            axes = axes[:len(x)]
             im_list = []
             isRGB = kwargs.pop('isRGB', False)
 
@@ -240,6 +248,12 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                     nd = xi.ndim - 1
                 else:
                     nd = xi.ndim
+
+                if mode[idx] is None:
+                    if nd >= 3:
+                        mode[idx] = 'montage'
+                    else:
+                        mode[idx] = 'imshow'
 
                 kwargs_subplot = {}
                 for key in kwargs:
@@ -280,7 +294,10 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                              mask_nan=mask_nan[idx], notick=notick[idx],
                              isRGB=isRGB_subplot, **kwargs_subplot)
                 im_list.append(im)
-            fig = im_list[0].get_figure()
+            if mode[idx].lower() in ['g', 'imagegrid']:
+                fig = im_list[0][0]
+            else:
+                fig = im_list[0].get_figure()
             _apply_fig_kwargs(fig, fig_kwargs)
 
             return im_list
@@ -344,7 +361,13 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             warnings.warn("using fig from specified axis instead of provided",
                           "fig input")
         fig = ax.get_figure()
-        subplot = ax.get_subplotspec()
+        if isinstance(ax, mpl_toolkits.axes_grid1.axes_divider.LocatableAxes):
+            ax_locator = ax.get_axes_locator()
+            subplot = ax_locator.get_subplotspec()
+        else:
+            subplot = ax.get_subplotspec()
+        # mpl_toolkits.axes_grid1.axes_divider.LocatableAxes
+
 
     if not is_string_like(mode):
         raise ValueError("mode must be string-like")
