@@ -272,7 +272,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                 elif mode[idx].lower() in ['g', 'imagegrid']:
                     omit = ['transpose', 'grid_labels', 'grid_label_kwargs']
                 else:
-                    omit = []
+                    omit = ['transpose']
 
                 # turn off existing axis if imagegrid will be called
                 if mode[idx].lower() in ['g', 'imagegrid']:
@@ -417,6 +417,8 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     elif mode.lower() in ['i', 'imshow']:
         if nd > 2:
             raise ValueError("imshow mode only works for 2D input")
+        if kwargs.pop('transpose', False):
+            x = x.T
     elif mode.lower() in ['g', 'imagegrid']:
         if x.ndim > 3:
             if isRGB:
