@@ -3,10 +3,25 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def masked_overlay(overlay_image, ax=None, overlay_cmap=plt.cm.hot,
-                   add_colorbar='False', colorbar_kwargs={'shrink': 0.9},
+def overlay_args(**kwargs):
+    """ convernience function for populating overlay kwargs """
+    args = {}
+    args['vmin'] = kwargs.pop('vmin', None)
+    args['vmax'] = kwargs.pop('vmax', None)
+    args['cmap'] = kwargs.pop('cmap', plt.cm.hot)
+    args['maskval'] = kwargs.pop('maskval', 0)
+    args['add_colorbar'] = kwargs.pop('add_colorbar', False)
+    args['colorbar_kwargs'] = kwargs.pop('colorbar_kwargs', {'shrink', 0.9})
+    args['alpha'] = kwargs.pop('alpha', 1.0)
+    args['alpha_image'] = kwargs.pop('alpha_image', None)
+    args['ax'] = kwargs.pop('ax', None)
+    return args
+
+
+def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
+                   add_colorbar=False, colorbar_kwargs={'shrink': 0.9},
                    vmin=None, vmax=None, alpha=1.0, alpha_image=None,
-                   maskval=0):
+                   maskval=0, call_imshow=True):
     """ overlay another volume via alpha transparency onto the existing volume
     plotted on axis ax.
 
@@ -16,7 +31,7 @@ def masked_overlay(overlay_image, ax=None, overlay_cmap=plt.cm.hot,
         volume to use for the overlay
     ax : matplotlib.axes.Axes, optional
         axis to add the overlay to.  plt.gca() if unspecified
-    overlay_cmap : matplotlib.colors.Colormap
+    cmap : matplotlib.colors.Colormap
         colormap for the overlay
     add_colorbar : bool, optional
         determine of a colorbar should be added to the axis
@@ -33,8 +48,12 @@ def masked_overlay(overlay_image, ax=None, overlay_cmap=plt.cm.hot,
         provided instead
     maksval : float, optional
         anywhere `overlay_image` == `maskval`, alpha = 0
+    call_imshow : bool, optional
+        if False, just return the argument dictionary for imshow rather than
+        calling it directly
     """
-
+    if ax is None:
+        ax = plt.gca()
     if vmin is None:
         vmin = overlay_image.min()
     if vmax is None:
@@ -49,7 +68,7 @@ def masked_overlay(overlay_image, ax=None, overlay_cmap=plt.cm.hot,
         # alpha_mask[overlay_image < vmin] = 0
     alpha_mask = alpha_mask | (overlay_image < vmin)
     image = (np.clip(overlay_image, vmin, vmax) - vmin) / (vmax - vmin)
-    image_RGBA = overlay_cmap(image)  # convert to RGBA
+    image_RGBA = cmap(image)  # convert to RGBA
     if alpha_mask is not None:
         if alpha_image is None:
             image_RGBA[..., -1][alpha_mask] = 0  # set
@@ -57,9 +76,13 @@ def masked_overlay(overlay_image, ax=None, overlay_cmap=plt.cm.hot,
         else:
             image_RGBA[..., -1] = image_RGBA[..., -1] * alpha_image
 
-    im = ax.imshow(image_RGBA, cmap=overlay_cmap, vmin=vmin, vmax=vmax)
-    if add_colorbar:
-        plt.colorbar(im, ax=ax, **colorbar_kwargs)
-    ax.axis('off')
-    ax.axis('image')
+    if call_imshow:
+        im = ax.imshow(image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax)
+        if add_colorbar:
+            plt.colorbar(im, ax=ax, **colorbar_kwargs)
+        ax.axis('off')
+        ax.axis('image')
+    else:
+        return (dict(X=image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax),
+                dict(ax=ax, colorbar_kwargs=colorbar_kwargs))
     return

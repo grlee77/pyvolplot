@@ -13,9 +13,12 @@ from .montager import montager, montager4d, add_lines, _calc_rows
 from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
 from .mips import calc_mips
 from .utils import add_inner_title
+from .overlay import masked_overlay
 from matplotlib import is_string_like
 
-
+# Note: visvis also has function called volshow, but that one is for displaying
+# 3D volumes using OpenGL
+# see:  https://code.google.com/p/visvis/wiki/functions#volshow
 def _to_list(y, n):
     """ For list input y, check that len(y) == n.
     For scalar input y, duplicate y into a list of length(n)
@@ -109,8 +112,64 @@ def _apply_fig_kwargs(fig, fig_kwargs):
         fig.set_edgecolor(edgecolor)
 
 
+def _reshape_for_imagegrid(x, isRGB):
+    if x.ndim > 3:
+        if isRGB:
+            x = np.reshape(x, (x.shape[0], x.shape[1], -1, x.shape[-1]))
+        else:
+            x = np.reshape(x, (x.shape[0], x.shape[1], -1))
+    elif x.ndim == 2:
+        x = x[:, :, np.newaxis]
+    elif x.ndim == 1:
+        x = x[:, np.newaxis, np.newaxis]
+
+    if x.shape[-1] > 25:
+        warnings.warn("imagegrid mode likely to be slow when number of "
+                      "subplots is large, consider using mode='montage'")
+    return x
+
+
+def _populate_ImageGrid(grid, x, transpose=False, isRGB=False,
+                        overlay_args=None, vmin=None, vmax=None):
+    for iz in range(x.shape[2]):
+        if isRGB:
+            if transpose:
+                img = x[:, :, iz, :]
+            else:
+                img = x[:, :, iz, :].transpose((1, 0, 2))
+        else:
+            if transpose:
+                img = x[:, :, iz].T
+            else:
+                img = x[:, :, iz]
+
+        if overlay_args is None:
+            grid[iz].imshow(img, vmin=vmin, vmax=vmax)
+        else:
+            imshow_dict, cbar_dict = masked_overlay(img, call_imshow=False,
+                                                    **overlay_args)
+            grid[iz].imshow(**imshow_dict)
+
+        if iz == 0:
+            if transpose:
+                grid[iz].set_xticks([x.shape[0]])
+            else:
+                grid[iz].set_xticks([x.shape[1]])
+            grid[iz].xaxis.tick_top()
+            if transpose:
+                grid[iz].set_yticks([x.shape[1]])
+            else:
+                grid[iz].set_yticks([x.shape[0]])
+        else:
+            grid[iz].axis('off')
+    # make blank plots to fill out the rest of the cells
+    for iz in range(x.shape[2], len(grid)):
+        grid[iz].imshow(np.zeros(img.shape))
+        grid[iz].axis('off')
+
+
 def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
-            show_lines=False, line_color='w', mask_nan=False, notick=False,
+            show_lines=None, line_color='y', mask_nan=False, notick=False,
             **kwargs):
     """ volume viewing utility.  Reshapes the volume data based on the desired
     mode and then plots using imshow.
@@ -138,7 +197,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     cplx_to_abs : bool, optional
         If true, convert complex data to magnitude before plotting.  Otherwise,
         only the real component is shown.
-    show_lines : bool, optional
+    show_lines : bool or None, optional
         Currently only used for mode='montage'.  If true, add lines separating
         the subimages of the montage.
     line_color : str, optional
@@ -169,6 +228,15 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     grid_label_kwargs : dict, optional
         additional kw_args specific to `pyvolplot.utils.add_inner_title`.
         These will be applied to all subplots of the imagegrid.
+    overlay_list : list of ndarray, optional
+        optional overlay volumes
+    overlay_args_list : list of dict, optional
+        keywords to pass on to .overlays.masked_overlay for each element in
+        overlay_list
+    imgrid_independent_scaling : bool, optional
+        If True and mode = 'imagegrid', scale each grid cell independently.
+        Default = False.  Applies only to the background image, not the
+        overlays
 
 
     Returns
@@ -178,6 +246,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
     """
 
+    info_dict = {}
     # separate out figure-specific kwargs
     fig_kwargs = _parse_fig_kwargs(kwargs)
 
@@ -295,7 +364,8 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                              isRGB=isRGB_subplot, **kwargs_subplot)
                 im_list.append(im)
             if mode[idx].lower() in ['g', 'imagegrid']:
-                fig = im_list[0][0]
+                # im_list[0] is actually an ImageGrid object in this case
+                fig = im_list[0].axes_all[0].get_figure()
             else:
                 fig = im_list[0].get_figure()
             _apply_fig_kwargs(fig, fig_kwargs)
@@ -331,6 +401,12 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     else:
         nd = x.ndim
 
+    if show_lines is None:
+        if nd < 4:
+            show_lines = False
+        else:
+            show_lines = True
+
     if nd < 2:
         warnings.warn(
             "input only has {} dimensions. converting to 2D".format(nd))
@@ -341,6 +417,40 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             mode = 'montage'
         else:
             mode = 'imshow'
+
+    if 'overlay_list' in kwargs:
+        overlay_list = kwargs.pop('overlay_list')
+        n_overlays = len(overlay_list)
+        do_overlays = True
+        if 'overlay_args_list' not in kwargs:
+            # if not specified, will just be using the defaults
+            overlay_args_list = [{}, ] * n_overlays
+            if n_overlays > 1:
+                warnings.warn(
+                    "multiple overlays specified, but no overlay_args_list "
+                    "was supplied.  all will have same scaling/color!")
+        else:
+            overlay_args_list = kwargs.pop('overlay_args_list')
+            if isinstance(overlay_args_list, dict):
+                overlay_args_list = [overlay_args_list, ]
+            if len(overlay_args_list) != n_overlays:
+                raise ValueError("overlay arguments list must match the number"
+                                 " of overlays")
+
+        # verify that overlays have a shape compatible with the background
+        if isRGB:
+            bg_shape = x.shape[..., -1]
+        else:
+            bg_shape = x.shape
+
+        for idx, overlay in enumerate(overlay_list):
+            if overlay.shape != bg_shape:
+                raise ValueError("overlay shape incompatible with background")
+        # if mode not in ['m', 'montage']:
+        #     raise ValueError("overlay volumes currently only supported in "
+        #                      "montage mode")
+    else:
+        do_overlays = False
 
     # generate a new figure if an existing axis was not passed in
     if ax is None:
@@ -368,11 +478,11 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             subplot = ax.get_subplotspec()
         # mpl_toolkits.axes_grid1.axes_divider.LocatableAxes
 
-
     if not is_string_like(mode):
         raise ValueError("mode must be string-like")
 
     if mode.lower() in ['m', 'montage']:
+
         if nd > 4:
             warnings.warn(
                 "montager only tiles up to 4D.  all excess dimensions" +
@@ -396,6 +506,19 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         else:
             x, nrows, ncols = montager(**montage_kwargs)
 
+        if do_overlays:
+            # apply same montage to each of the overlays
+            for idx, overlay in enumerate(overlay_list):
+                if nd > 4:
+                    overlay = overlay.reshape(overlay.shape[:3] + (-1,),
+                                              order='F')
+                montage_kwargs['xi'] = overlay
+                overlay, nrows, ncols = montager(**montage_kwargs)
+                overlay_list[idx] = overlay
+
+        montage_kwargs.pop('xi')
+        info_dict['montage_kwargs'] = montage_kwargs
+
     elif mode.lower() in ['c', 'centerplanes']:
         if nd != 3:
             raise ValueError("centerplanes mode only supports 3D volumes")
@@ -407,32 +530,38 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         centerplane_kwargs['x'] = x
         x = stack_func(**centerplane_kwargs)
 
+        if do_overlays:
+            for idx, overlay in enumerate(overlay_list):
+                stack_func = centerplanes_stack
+                centerplane_kwargs['x'] = overlay
+                overlay_list[idx] = stack_func(**centerplane_kwargs)
+
+        centerplane_kwargs.pop('x')
+        info_dict['centerplane_kwargs'] = centerplane_kwargs
+
     elif mode.lower() in ['p', 'mips']:
         if isRGB:
             raise ValueError("RGB not support for MIP mode")
         mip_kwargs = _parse_mip_kwargs(kwargs)
         mip_kwargs['x'] = x
         x = calc_mips(**mip_kwargs)
+        mip_kwargs.pop('x')
+        info_dict['mip_kwargs'] = mip_kwargs
 
     elif mode.lower() in ['i', 'imshow']:
         if nd > 2:
             raise ValueError("imshow mode only works for 2D input")
         if kwargs.pop('transpose', False):
             x = x.T
+            if do_overlays:
+                for idx, overlay in enumerate(overlay_list):
+                    overlay = overlay.T
     elif mode.lower() in ['g', 'imagegrid']:
-        if x.ndim > 3:
-            if isRGB:
-                x = np.reshape(x, (x.shape[0], x.shape[1], -1, x.shape[-1]))
-            else:
-                x = np.reshape(x, (x.shape[0], x.shape[1], -1))
-        elif x.ndim == 2:
-            x = x[:, :, np.newaxis]
-        elif x.ndim == 1:
-            x = x[:, np.newaxis, np.newaxis]
 
-        if x.shape[-1] > 25:
-            warnings.warn("imagegrid mode likely to be slow when number of",
-                          "subplots is large, consider using mode='montage'")
+        x = _reshape_for_imagegrid(x, isRGB)
+        if do_overlays:
+            for idx, overlay in enumerate(overlay_list):
+                overlay = _reshape_for_imagegrid(overlay, False)
 
         grid_labels = kwargs.pop('grid_labels', [])
         if grid_labels:
@@ -456,30 +585,26 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         if 'transpose' not in kwargs:
             kwargs['transpose'] = True
 
-        for iz in range(x.shape[2]):
-            if isRGB:
-                if kwargs['transpose']:
-                    grid[iz].imshow(x[:, :, iz, :])
-                else:
-                    grid[iz].imshow(x[:, :, iz, :].transpose((1, 0, 2)))
-            else:
-                if kwargs['transpose']:
-                    grid[iz].imshow(x[:, :, iz].T)
-                else:
-                    grid[iz].imshow(x[:, :, iz])
-            if iz == 0:
-                if kwargs['transpose']:
-                    grid[iz].set_xticks([x.shape[0]])
-                else:
-                    grid[iz].set_xticks([x.shape[1]])
-                grid[iz].xaxis.tick_top()
-                if kwargs['transpose']:
-                    grid[iz].set_yticks([x.shape[1]])
-                else:
-                    grid[iz].set_yticks([x.shape[0]])
-            else:
-                grid[iz].axis('off')
+        # fill in the cells of the grid
 
+        vmin = kwargs.get('vmin', None)
+        vmax = kwargs.get('vmax', None)
+        imgrid_independent_scaling = kwargs.get('imgrid_independent_scaling',
+                                                False)
+        if not imgrid_independent_scaling:
+            if vmin is None:
+                vmin = x.min()
+            if vmax is None:
+                vmax = x.max()
+        _populate_ImageGrid(grid, x, kwargs['transpose'], isRGB, vmin=vmin,
+                            vmax=vmax)
+        if do_overlays:
+            for idx, overlay in enumerate(overlay_list):
+                overlay = _populate_ImageGrid(grid, overlay,
+                                              kwargs['transpose'], isRGB,
+                                              overlay_args_list[idx])
+
+        # apply the labels
         if grid_labels:
             for iz in range(x.shape[2]):
                 if iz < len(grid_labels):
@@ -488,7 +613,9 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                     t.patch.set_alpha(0.5)
 
         plt.show()
-        return fig, grid
+        return grid
+        # note to get the figure itself, use: fig = grid.axes_all[0].figure
+
     else:
         raise ValueError("unsupported mode")
 
@@ -503,15 +630,25 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     kwargs.pop('grid_labels', None)
     kwargs.pop('grid_label_kwargs', None)
 
-    if isRGB:
-        # matshow doesn't support color images
+    if isRGB or do_overlays:
+        # matshow doesn't support color images or transparency
         im = ax.imshow(x, **kwargs)
         # adjust axes & aspect to be similar to matshow() case
         aspect = matplotlib.rcParams['image.aspect']
         ax.set_aspect(aspect)
         ax.xaxis.tick_top()
+        info_dict['imshow_func'] = 'imshow'
+
+        if do_overlays:
+            for idx, overlay in enumerate(overlay_list):
+                masked_overlay(overlay, **overlay_args_list[idx])
     else:
         im = ax.matshow(x, **kwargs)
+        info_dict['imshow_func'] = 'matshow'
+
+    info_dict['imshow_kwargs'] = kwargs
+
+
 
     # if requested, draw lines dividing the cells of the montage
     if show_lines and (mode.lower() in ['m', 'montage']):
@@ -537,6 +674,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
     _apply_fig_kwargs(fig, fig_kwargs)
 
+    #return im, info_dict
     return im
 
 

@@ -11,7 +11,7 @@ an affine
 
 
 def resample_image(data, zooms, new_zooms, affine=None, order=1,
-                   mode='constant', cval=0):
+                   mode='constant', cval=0, time_axis=-1):
     ''' Resample data from anisotropic to isotropic voxel size
 
     Parameters
@@ -28,12 +28,15 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
         order of interpolation for resampling/reslicing,
         0 nearest interpolation, 1 trilinear etc..
         if you don't want any smoothing 0 is the option you need.
-    mode : string ('constant', 'nearest', 'reflect' or 'wrap')
+    mode : string ('constant', 'nearest', 'reflect' or 'wrap'), optional
         Points outside the boundaries of the input are filled according
         to the given mode.
-    cval : float
+    cval : float, optional
         Value used for points outside the boundaries of the input if
         mode='constant'.
+    time_axis : int, optional
+        if input is 4D, this determines the axis to loop over
+
 
     Returns
     -------
@@ -73,8 +76,14 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
     '''
 
     R = np.diag(np.array(new_zooms) / np.array(zooms))
+
+    idx_spatial = list(np.arange(data.ndim))
+    if data.ndim == 4:
+        idx_spatial.remove(idx_spatial[time_axis])
+
+
     new_shape = np.array(zooms) / np.array(new_zooms) * \
-        np.array(data.shape[:3])
+        np.array(tuple(np.asarray(data.shape)[idx_spatial]))
     new_shape = np.round(new_shape).astype('i8')
     if data.ndim == 3:
         if not np.iscomplexobj(data):
@@ -93,25 +102,30 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
                                       order=order, mode=mode, cval=cval)
     if data.ndim == 4:
         data2l = []
-        for i in range(data.shape[-1]):
+        slices = [slice(None)] * 4
+        for i in range(data.shape[time_axis]):
+            slices[time_axis] = i
             if not np.iscomplexobj(data):
-                tmp = affine_transform(input=data[..., i], matrix=R,
+                tmp = affine_transform(input=data[slices], matrix=R,
                                        offset=np.zeros(3,),
                                        output_shape=tuple(new_shape),
                                        order=order, mode=mode, cval=cval)
             else:
-                tmp = affine_transform(input=data[..., i].real,
+                tmp = affine_transform(input=data[slices].real,
                                        matrix=R, offset=np.zeros(3,),
                                        output_shape=tuple(new_shape),
                                        order=order, mode=mode, cval=cval) + \
-                    +1j * affine_transform(input=data[..., i].imag,
+                    +1j * affine_transform(input=data[slices].imag,
                                            matrix=R, offset=np.zeros(3,),
                                            output_shape=tuple(new_shape),
                                            order=order, mode=mode, cval=cval)
             data2l.append(tmp)
-        data2 = np.zeros(tmp.shape + (data.shape[-1],), data.dtype)
-        for i in range(data.shape[-1]):
-            data2[..., i] = data2l[i]
+        data2_shape = np.asarray(data.shape)
+        data2_shape[idx_spatial] = new_shape
+        data2 = np.zeros(tuple(data2_shape), data.dtype)
+        for i in range(data.shape[time_axis]):
+            slices[time_axis] = i
+            data2[slices] = data2l[i]
     if affine is not None:
         Rx = np.eye(4)
         Rx[:3, :3] = R
