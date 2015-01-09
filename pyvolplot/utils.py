@@ -174,3 +174,38 @@ def generate_atlas_colormap(num_ROIs, prepend_bg=True, bgcolor=(0, 0, 0),
     if show_plot:
         palplot(palette)
     return cmap
+
+
+def _cmap_single_channel(channel, N, smin=0.2, smax=1.0):
+    """ single channel RGB colormap with N intries with in channel in range
+        [smin, smax]
+    """
+    import numpy as np
+    from matplotlib import colors
+    if smin < 0 or smax > 1 or smin > smax:
+        raise ValueError("require: 0 <= smin < smax <= 1")
+    N = int(N)
+    if N < 1:
+        raise ValueError("N must be > 1")
+    rgb = np.zeros((N, 3))
+    rgb[:, channel] = np.linspace(smin, smax, N)
+    color = rgb
+    return colors.ListedColormap(color)
+
+
+def cmap_greens(N, smin=0.2, smax=1.0):
+    """ green RGB colormap with N entries in range [smin, smax]
+    """
+    return _cmap_single_channel(1, N, smin, smax)
+
+
+def cmap_reds(N, smin=0.2, smax=1.0):
+    """ red RGB colormap with N intries with in range [smin, smax]
+    """
+    return _cmap_single_channel(0, N, smin, smax)
+
+
+def cmap_blues(N, smin=0.2, smax=1.0):
+    """ blue RGB colormap with N intries with in range [smin, smax]
+    """
+    return _cmap_single_channel(2, N, smin, smax)
