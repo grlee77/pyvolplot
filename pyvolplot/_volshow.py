@@ -19,16 +19,62 @@ from matplotlib import is_string_like
 # Note: visvis also has function called volshow, but that one is for displaying
 # 3D volumes using OpenGL
 # see:  https://code.google.com/p/visvis/wiki/functions#volshow
-def _to_list(y, n):
-    """ For list input y, check that len(y) == n.
-    For scalar input y, duplicate y into a list of length(n)
+
+
+def _to_list(y, n, make_copies=True):
+    """
+    For list input y, check that len(y) == n.
+    For non-list input y, duplicate y into a list of length(n)
+    If make_copies is True any replicates of ndarray or dict objects will be
+    copies.
     """
     if isinstance(y, (list, tuple, np.ndarray)):
         if len(y) != n:
-            raise ValueError("axes list must match length of x")
+            raise ValueError("length of list must match n")
         return y
     else:
-        return [y, ]*n
+        if make_copies and isinstance(y[0], (np.ndarray, dict)):
+            # elements of the list will be independent copies
+            ylist = []
+            for i in range(n):
+                if isinstance(y[0], np.ndarray):
+                    ylist.append(y[0].copy(), )
+                else:
+                    from copy import deepcopy
+                    ylist.append(deepcopy(y[0]), )
+        else:
+            ylist = [y, ]*n
+        return ylist
+
+
+def _list_to_list_of_lists(y, n, make_copies=True):
+    """
+    For list input y, if elements of the list are also lists,
+    check that len(y) == n.
+    If elements of y are not lists, duplicate y into a list of lists
+    of length len(n).
+    If make_copies is True any replicates of ndarray or dict objects will
+    be copies.
+    """
+    if not isinstance(y, (list, tuple)):
+        raise ValueError("input must be list, tuple or array")
+    elif not isinstance(y[0], (list, tuple)):
+        if make_copies and isinstance(y[0], (np.ndarray, dict)):
+            # elements of the list will be independent copies
+            ylist = []
+            for i in range(n):
+                if isinstance(y[0], np.ndarray):
+                    ylist.append([y[0].copy(), ])
+                else:
+                    from copy import deepcopy
+                    ylist.append([deepcopy(y[0]), ])
+        else:
+            ylist = [y, ]*n
+        return ylist
+    else:
+        if len(y) != n:
+            raise ValueError("length of list must match n")
+        return y
 
 
 def _parse_montager_kwargs(kwargs, nd, omit=[], list_only=False):
@@ -130,7 +176,7 @@ def _reshape_for_imagegrid(x, isRGB):
 
 
 def _populate_ImageGrid(grid, x, transpose=False, isRGB=False,
-                        overlay_args=None, vmin=None, vmax=None):
+                        overlay_args=None, vmin=None, vmax=None, **kwargs):
     for iz in range(x.shape[2]):
         if isRGB:
             if transpose:
@@ -146,8 +192,8 @@ def _populate_ImageGrid(grid, x, transpose=False, isRGB=False,
         if overlay_args is None:
             grid[iz].imshow(img, vmin=vmin, vmax=vmax)
         else:
-            imshow_dict, cbar_dict = masked_overlay(img, call_imshow=False,
-                                                    **overlay_args)
+            imshow_dict, cbar_dict = masked_overlay(
+                img, call_imshow=False, **overlay_args)
             grid[iz].imshow(**imshow_dict)
 
         if iz == 0:
@@ -237,6 +283,8 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         If True and mode = 'imagegrid', scale each grid cell independently.
         Default = False.  Applies only to the background image, not the
         overlays
+    permute : array_like
+        order in which to transpose the axes prior to plotting
 
 
     Returns
@@ -249,6 +297,12 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
     info_dict = {}
     # separate out figure-specific kwargs
     fig_kwargs = _parse_fig_kwargs(kwargs)
+
+    # change a few of the imshow defaults
+    if 'cmap' not in kwargs:
+        kwargs['cmap'] = plt.cm.gray
+    if 'interpolation' not in kwargs:
+        kwargs['interpolation'] = 'nearest'
 
     if isinstance(x, (list, tuple)):
         # support inputing a list of volumes to each be placed into its own
@@ -298,7 +352,10 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
             # support lists of other kwargs arguments as well...
             for key in kwargs:
-                kwargs[key] = _to_list(kwargs[key], len(x))
+                if key in ['overlay_list', 'overlay_args_list', 'permute']:
+                    kwargs[key] = _list_to_list_of_lists(kwargs[key], len(x))
+                else:
+                    kwargs[key] = _to_list(kwargs[key], len(x))
 
             for idx, xi in enumerate(x):
                 if isRGB:
@@ -381,6 +438,14 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             warnings.warn("only real part of complex data displayed")
             x = np.real(x)
 
+    permute = kwargs.pop('permute', None)
+    if permute is not None:
+        x = x.transpose(permute)
+        if 'overlay_list' in kwargs:
+            overlay_list = kwargs['overlay_list']
+            for idx in range(len(overlay_list)):
+                overlay_list[idx] = overlay_list[idx].transpose(permute)
+
     if mask_nan:
         nanmask = np.isnan(x)
         if np.any(nanmask):
@@ -436,6 +501,14 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             if len(overlay_args_list) != n_overlays:
                 raise ValueError("overlay arguments list must match the number"
                                  " of overlays")
+
+        # unless specified otherwise, set the interpolation of the overlay
+        # to match that of the underlying volume
+        if 'interpolation' in kwargs:
+            for idx in range(len(overlay_args_list)):
+                if 'interpolation' not in overlay_args_list[idx]:
+                    overlay_args_list[idx][
+                        'interpolation'] = kwargs['interpolation']
 
         # verify that overlays have a shape compatible with the background
         if isRGB:
@@ -597,7 +670,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             if vmax is None:
                 vmax = x.max()
         _populate_ImageGrid(grid, x, kwargs['transpose'], isRGB, vmin=vmin,
-                            vmax=vmax)
+                            vmax=vmax, **kwargs)
         if do_overlays:
             for idx, overlay in enumerate(overlay_list):
                 overlay = _populate_ImageGrid(grid, overlay,
@@ -618,12 +691,6 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
     else:
         raise ValueError("unsupported mode")
-
-    # change a few of the imshow defaults
-    if 'cmap' not in kwargs:
-        kwargs['cmap'] = plt.cm.gray
-    if 'interpolation' not in kwargs:
-        kwargs['interpolation'] = 'nearest'
 
     # don't pass on volshow-specific keywords to imshow() or matshow()
     kwargs.pop('isRGB', None)

@@ -21,7 +21,8 @@ def overlay_args(**kwargs):
 def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
                    add_colorbar=False, colorbar_kwargs={'shrink': 0.9},
                    vmin=None, vmax=None, alpha=1.0, alpha_image=None,
-                   maskval=0, call_imshow=True):
+                   maskval=0, call_imshow=True, **kwargs):  # , interpolation='nearest',**kwargs):
+
     """ overlay another volume via alpha transparency onto the existing volume
     plotted on axis ax.
 
@@ -51,6 +52,8 @@ def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
     call_imshow : bool, optional
         if False, just return the argument dictionary for imshow rather than
         calling it directly
+    kwargs : dict, optional
+        any additional keyword arguments to pass on to imshow()
     """
     if ax is None:
         ax = plt.gca()
@@ -77,12 +80,12 @@ def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
             image_RGBA[..., -1] = image_RGBA[..., -1] * alpha_image
 
     if call_imshow:
-        im = ax.imshow(image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax)
+        im = ax.imshow(image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax, **kwargs)
         if add_colorbar:
             plt.colorbar(im, ax=ax, **colorbar_kwargs)
         ax.axis('off')
         ax.axis('image')
     else:
-        return (dict(X=image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax),
+        return (dict(X=image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax, **kwargs),
                 dict(ax=ax, colorbar_kwargs=colorbar_kwargs))
     return
