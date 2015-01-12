@@ -1,4 +1,6 @@
 # from matplotlib import pyplot as plt
+from __future__ import division, print_function
+
 from matplotlib.offsetbox import AnchoredText
 
 
@@ -127,8 +129,9 @@ def trim_to_mask(arr, mask, maskval=0, pad_width=1):
 
 
 def generate_atlas_colormap(num_ROIs, prepend_bg=True, bgcolor=(0, 0, 0),
-                            randomize=True, random_seed=None, show_plot=False,
-                            lightness=0.6, saturation=0.7):
+                            randomize=True, random_seed=None, lightness=0.6,
+                            saturation=0.7, randomize_lightness=False,
+                            show_plot=False):
     """ generate a discrete colormap to use with brain atlas overlays, etc.
 
     The colormap values will have constant brightness and saturation, with
@@ -147,6 +150,8 @@ def generate_atlas_colormap(num_ROIs, prepend_bg=True, bgcolor=(0, 0, 0),
         if True, randomize the order of colors (aside from the background)
     random_seed : int, optional
         seed to use during randomization
+    randomize_lightness : bool, optional
+        if True, also randomly vary the lightness within +/- 0.1 of lightness
     show_plot : bool, optional
         if True, call seaborn.palplot to display the colormap
 
@@ -160,8 +165,6 @@ def generate_atlas_colormap(num_ROIs, prepend_bg=True, bgcolor=(0, 0, 0),
         raise e
 
     palette = hls_palette(num_ROIs, s=saturation, l=lightness)
-    if prepend_bg:
-        palette = [bgcolor] + palette
 
     if randomize:
         from random import shuffle, seed
@@ -169,10 +172,27 @@ def generate_atlas_colormap(num_ROIs, prepend_bg=True, bgcolor=(0, 0, 0),
             seed(random_seed)
         shuffle(palette)
 
+    if prepend_bg:
+        palette = [bgcolor] + palette
+
     cmap = colors.ListedColormap(palette)
 
+    if randomize_lightness:
+        import colorsys
+        import numpy as np
+        bmax = min(1.0, lightness + 0.1)/lightness
+        bmin = max(0, lightness - 0.1)/lightness
+        b = np.random.rand(len(cmap.colors)) * (bmax - bmin) + bmin
+
+        if show_plot:
+            palplot(cmap.colors)
+        for i, c in enumerate(cmap.colors):
+            c_hls = list(colorsys.rgb_to_hls(*c))
+            c_hls[1] *= b[i]
+            cmap.colors[i] = colorsys.hls_to_rgb(*c_hls)
+
     if show_plot:
-        palplot(palette)
+        palplot(cmap.colors)
     return cmap
 
 
