@@ -1,7 +1,81 @@
 # from matplotlib import pyplot as plt
 from __future__ import division, print_function
 
+import numpy as np
 from matplotlib.offsetbox import AnchoredText
+
+
+def clip_pct(arr, qmin=0.0, qmax=100.0, mask=None, preserve_dtype=True,
+             **kwargs):
+    """ clip image based on percentile intensity range [qmin, qmax].
+
+    Operates similarly to ``numpy.clip``, but uses intensity percentiles as
+    opposed to absolute values.
+
+    Parameters
+    ----------
+    arr : array_like
+        the array to clip
+    qmin : float, optional
+        minimum percentile threshold.  valid range: [0, 100)
+    qmax : float, optional
+        maximal percentile threshold.  valid range: (0, 100]
+    mask : array_like, optional
+        boolean mask of same shape as `arr`.  Percentiles will be calculated
+        using only values within the mask.
+    preserve_dtype : bool, optional
+        if True, output array dtype will mach `arr.dtype`
+    kwargs : dict, optional
+        additional kwargs are passed on to np.percentile
+
+    Returns
+    -------
+    clipped_arr : array_like
+        `arr` with intensities clipped to the percentile range [qmin, qmax]
+
+    Examples
+    -------
+    print("numpy.int input and preserve dtype, floats are truncated:")
+    a = np.arange(10)
+    print(a)
+    print(clip_pct(a, 10, 80))
+
+    print("same input with preserve_dtype = False:")
+    a = np.arange(10)
+    print(a)
+    print(clip_pct(a, 10, 80, preserve_dtype=False))
+
+    print("case with preserve_dtype = False and nearest neighbor "
+          "interpolation passed onto np.percentile:")
+    a = np.arange(10)
+    print(a)
+    print(clip_pct(a, 10, 80, preserve_dtype=False, interpolation='nearest'))
+
+    """
+    if qmin >= qmax or qmin < 0 or qmax > 100:
+        raise ValueError("require 0 <= qmin < qmax <= 1")
+
+    if qmin == 0 and qmax == 100:
+        return arr
+
+    arr = np.asanyarray(arr)
+    if mask is not None:
+        mask = np.asanyarray(mask)
+        if mask.shape != arr.shape:
+            raise ValueError("mask and arrume shapes must match")
+        arrm = arr[mask.astype(np.bool)]
+    else:
+        arrm = arr
+
+    if kwargs.get('overwrite_input', False):
+        raise ValueError("overwrite_input kwarg not allowed")
+
+    arr_min, arr_max = np.percentile(arrm, q=[qmin, qmax], **kwargs)
+
+    clipped_arr = np.clip(arr, arr_min, arr_max)
+    if preserve_dtype and clipped_arr.dtype != arr.dtype:
+        clipped_arr = clipped_arr.astype(arr.dtype)
+    return clipped_arr
 
 
 def add_inner_title(ax, title, loc=9, size=None, prop=None, **kwargs):

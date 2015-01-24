@@ -33,15 +33,15 @@ def _to_list(y, n, make_copies=True):
             raise ValueError("length of list must match n")
         return y
     else:
-        if make_copies and isinstance(y[0], (np.ndarray, dict)):
+        if make_copies and isinstance(y, (np.ndarray, dict)):
             # elements of the list will be independent copies
             ylist = []
             for i in range(n):
-                if isinstance(y[0], np.ndarray):
-                    ylist.append(y[0].copy(), )
+                if isinstance(y, np.ndarray):
+                    ylist.append(y.copy(), )
                 else:
                     from copy import deepcopy
-                    ylist.append(deepcopy(y[0]), )
+                    ylist.append(deepcopy(y), )
         else:
             ylist = [y, ]*n
         return ylist
