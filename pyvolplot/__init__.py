@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+
 import matplotlib as mpl
-from aniso2iso import array_to_iso, resample_image
-from montager import montager, montager4d
-from subplot_stack import subplot_stack
-from centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
-from _volshow import volshow
-from mips import plot_mips
-from utils import add_inner_title
-from overlay import masked_overlay
+from .aniso2iso import array_to_iso, resample_image
+from .montager import montager, montager4d
+from .subplot_stack import subplot_stack
+from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
+from ._volshow import volshow
+from .mips import plot_mips
+from .utils import add_inner_title
+from .overlay import masked_overlay
+from ._scatter3 import scatter3
 
 # modify some default matplotlib behavior
 mpl.rcParams['image.cmap'] = 'gray'

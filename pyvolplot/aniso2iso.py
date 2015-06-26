@@ -11,18 +11,18 @@ an affine
 
 
 def resample_image(data, zooms, new_zooms, affine=None, order=1,
-                   mode='constant', cval=0, time_axis=-1):
+                   mode='constant', cval=0, time_axis=-1, use_time_axis=None):
     ''' Resample data from anisotropic to isotropic voxel size
 
     Parameters
     ----------
-    data : array, shape (I,J,K) or (I,J,K,N)
-        3d volume or 4d volume with datasets
-    zooms : tuple, shape (3,)
-        voxel size for (i,j,k) dimensions
-    new_zooms : tuple, shape (3,)
-        new voxel size for (i,j,k) after resampling
-    affine : array, shape (4,4), optional
+    data : ndarray, shape (I,J,K, ...)
+        n-dimensional volume
+    zooms : tuple, shape (ndim, )
+        voxel size for (i,j,k, ...) dimensions
+    new_zooms : tuple, shape (ndim, )
+        new voxel size for (i,j,k, ...) after resampling
+    affine : array, shape (ndim+1, ndim+1), optional
         mapping from voxel coordinates to world coordinates
     order : int, from 0 to 5, optional
         order of interpolation for resampling/reslicing,
@@ -35,14 +35,15 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
         Value used for points outside the boundaries of the input if
         mode='constant'.
     time_axis : int, optional
-        if input is 4D, this determines the axis to loop over
-
+        if use_time_axis is True, this determines the axis to loop over
+    use_time_axis : int or None, optional
+        by default this is True for 4D, False otherwise
 
     Returns
     -------
-    data2 : array, shape (I,J,K) or (I,J,K,N)
-        datasets resampled into isotropic voxel size
-    affine2 : array, shape (4,4), optional
+    data2 : ndarray, shape (I,J,K, ...)
+        datasets resampled onto new_zooms
+    affine2 : ndarray, shape (ndim+1, ndim+1), optional
         new affine for the resampled image
 
     Notes
@@ -77,46 +78,54 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
 
     R = np.diag(np.array(new_zooms) / np.array(zooms))
 
-    idx_spatial = list(np.arange(data.ndim))
-    if data.ndim == 4:
-        idx_spatial.remove(idx_spatial[time_axis])
+    if use_time_axis is None:
+        if data.ndim == 4:
+            use_time_axis = True
+        else:
+            use_time_axis = False
 
+    idx_spatial = list(np.arange(data.ndim))
+    if use_time_axis:
+        idx_spatial.remove(idx_spatial[time_axis])
+    ndim_spatial = len(idx_spatial)
 
     new_shape = np.array(zooms) / np.array(new_zooms) * \
         np.array(tuple(np.asarray(data.shape)[idx_spatial]))
     new_shape = np.round(new_shape).astype('i8')
-    if data.ndim == 3:
+    if not use_time_axis:
         if not np.iscomplexobj(data):
             data2 = affine_transform(input=data, matrix=R,
-                                     offset=np.zeros(3,),
+                                     offset=np.zeros(ndim_spatial, ),
                                      output_shape=tuple(new_shape),
                                      order=order, mode=mode, cval=cval)
         else:
             data2 = affine_transform(input=data.real, matrix=R,
-                                     offset=np.zeros(3,),
+                                     offset=np.zeros(ndim_spatial, ),
                                      output_shape=tuple(new_shape),
                                      order=order, mode=mode, cval=cval) + \
                 1j * affine_transform(input=data.imag, matrix=R,
-                                      offset=np.zeros(3,),
+                                      offset=np.zeros(ndim_spatial, ),
                                       output_shape=tuple(new_shape),
                                       order=order, mode=mode, cval=cval)
-    if data.ndim == 4:
+    else:
         data2l = []
-        slices = [slice(None)] * 4
+        slices = [slice(None)] * data.ndim
         for i in range(data.shape[time_axis]):
             slices[time_axis] = i
             if not np.iscomplexobj(data):
                 tmp = affine_transform(input=data[slices], matrix=R,
-                                       offset=np.zeros(3,),
+                                       offset=np.zeros(ndim_spatial, ),
                                        output_shape=tuple(new_shape),
                                        order=order, mode=mode, cval=cval)
             else:
                 tmp = affine_transform(input=data[slices].real,
-                                       matrix=R, offset=np.zeros(3,),
+                                       matrix=R,
+                                       offset=np.zeros(ndim_spatial, ),
                                        output_shape=tuple(new_shape),
                                        order=order, mode=mode, cval=cval) + \
                     +1j * affine_transform(input=data[slices].imag,
-                                           matrix=R, offset=np.zeros(3,),
+                                           matrix=R,
+                                           offset=np.zeros(ndim_spatial, ),
                                            output_shape=tuple(new_shape),
                                            order=order, mode=mode, cval=cval)
             data2l.append(tmp)
@@ -127,8 +136,8 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
             slices[time_axis] = i
             data2[slices] = data2l[i]
     if affine is not None:
-        Rx = np.eye(4)
-        Rx[:3, :3] = R
+        Rx = np.eye(ndim_spatial + 1)
+        Rx[:ndim_spatial, :ndim_spatial] = R
         affine2 = np.dot(affine, Rx)
         return data2, affine2
     else:

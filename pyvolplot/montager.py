@@ -20,6 +20,7 @@ def add_lines(e, color='w', ncells_horizontal=1, ncells_vertical=1):
         s = e.shape[1]
         line_locs = np.round(np.arange(1, ncells_horizontal) *
                              s / ncells_horizontal)
+        line_locs -= 0.5
         for l in line_locs:
             plt.plot([l, l], [0, e.shape[0]], color)
             plt.axis('image')
@@ -27,6 +28,7 @@ def add_lines(e, color='w', ncells_horizontal=1, ncells_vertical=1):
         s = e.shape[0]
         line_locs = np.round(
             np.arange(1, ncells_vertical) * s / ncells_vertical)
+        line_locs -= 0.5
         for l in line_locs:
             plt.plot([0, e.shape[1]], [l, l], color)
             plt.axis('image')

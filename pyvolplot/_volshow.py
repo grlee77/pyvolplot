@@ -323,7 +323,17 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
             if ax is None:
                 # Call volshow() for each individual volume
-                srow, scol = _calc_rows(1.0, 1.0, len(x))
+                if 'row' in kwargs:
+                    srow, scol = _calc_rows(1.0, 1.0, len(x),
+                                            row=kwargs['row'])
+                    kwargs.pop('row')
+                elif 'col' in kwargs:
+                    srow, scol = _calc_rows(1.0, 1.0, len(x),
+                                            col=kwargs['col'])
+                    kwargs.pop('col')
+                else:
+                    srow, scol = _calc_rows(1.0, 1.0, len(x))
+
                 if False:  # use plt.subplots
                     # TODO: support aspect in _calc_rows?
                     fig, axes = plt.subplots(srow, scol)
@@ -420,6 +430,32 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                              mask_nan=mask_nan[idx], notick=notick[idx],
                              isRGB=isRGB_subplot, **kwargs_subplot)
                 im_list.append(im)
+
+            if mode[idx].lower() not in ['g', 'imagegrid']:
+                grid_labels = kwargs.pop('grid_labels', [])
+                if grid_labels:
+                    if not isinstance(grid_labels, (list, tuple)):
+                        raise ValueError("grid_labels must be a list or tuple")
+                    if not np.all([is_string_like(l) for l in grid_labels]):
+                        raise ValueError("grid_labels must contain onlt strings")
+                    default_grid_label_kwargs = dict(loc=9, size='large')
+                    grid_label_kwargs = kwargs.pop('grid_label_kwargs', {})
+                    for key, val in default_grid_label_kwargs.items():
+                        if key not in grid_label_kwargs:
+                            grid_label_kwargs[key] = val
+                    if 'title' in grid_label_kwargs:
+                        warnings.warn("'title' field of grid_label_kwargs "
+                                      "unsupported.  use grid_labels to pass in "
+                                      "the labels")
+                        grid_label_kwargs.pop('title', None)
+                # apply the labels
+                if grid_labels:
+                    for iz in range(len(x)):
+                        if iz < len(grid_labels):
+                            t = add_inner_title(ax=axes[iz], title=grid_labels[iz],
+                                                **grid_label_kwargs)
+                            t.patch.set_alpha(0.5)
+
             if mode[idx].lower() in ['g', 'imagegrid']:
                 # im_list[0] is actually an ImageGrid object in this case
                 fig = im_list[0].axes_all[0].get_figure()
@@ -655,8 +691,7 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         row, col = _calc_rows(*x.shape[:3])
         grid = ImageGrid(fig, subplot, nrows_ncols=(row, col), axes_pad=.05)
 
-        if 'transpose' not in kwargs:
-            kwargs['transpose'] = True
+        transpose_arg = kwargs.pop('transpose', True)
 
         # fill in the cells of the grid
 
@@ -669,12 +704,12 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                 vmin = x.min()
             if vmax is None:
                 vmax = x.max()
-        _populate_ImageGrid(grid, x, kwargs['transpose'], isRGB, vmin=vmin,
+        _populate_ImageGrid(grid, x, transpose_arg, isRGB, vmin=vmin,
                             vmax=vmax, **kwargs)
         if do_overlays:
             for idx, overlay in enumerate(overlay_list):
                 overlay = _populate_ImageGrid(grid, overlay,
-                                              kwargs['transpose'], isRGB,
+                                              transpose_arg, isRGB,
                                               overlay_args_list[idx])
 
         # apply the labels
