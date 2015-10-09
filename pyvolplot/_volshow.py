@@ -648,8 +648,6 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
     info_dict['imshow_kwargs'] = kwargs
 
-
-
     # if requested, draw lines dividing the cells of the montage
     if show_lines and (mode.lower() in ['m', 'montage']):
         # TODO: add lines for MIP or centerplane cases
