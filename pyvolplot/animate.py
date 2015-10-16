@@ -42,14 +42,13 @@ def cycle_frames(img_vols, time_axis=-1):
     im = plt.imshow(montage_func(img_vols[slices]),
                     cmap=plt.get_cmap('gray'))
 
-    def updatefig(*args):
-        global frame
-        frame += 1
+    def updatefig(frame, *args):  # *args):
+        # global frame
+        # frame += 1
         frame = frame % nframes
         slices[time_axis] = frame
         im.set_array(montage_func(img_vols[slices]))
         return im,
-
     ani = animation.FuncAnimation(fig, updatefig, interval=50, blit=True)
     plt.show()
     return ani
