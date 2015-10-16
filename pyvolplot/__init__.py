@@ -8,6 +8,7 @@ from ._volshow import volshow
 from .mips import plot_mips
 from .utils import add_inner_title
 from .overlay import masked_overlay
+from .animate import cycle_frames
 
 # modify some default matplotlib behavior
 mpl.rcParams['image.cmap'] = 'gray'
