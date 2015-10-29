@@ -61,13 +61,19 @@ def montager4d(
     nvols = xi.shape[axis]
     slices = [slice(None), ] * 4
     slices[axis] = 0
-    m0 = montager(xi[slices], **montager_args)[0]
+    if montager_args.get('output_grid_size', False):
+        m0 = montager(xi[slices], **montager_args)[0]
+    else:
+        m0 = montager(xi[slices], **montager_args)
 
     m_out = np.zeros(m0.shape + (nvols,), dtype=xi.dtype)
     m_out[:, :, 0] = m0
     for n in range(1, nvols):
         slices[axis] = n
-        m_out[:, :, n] = montager(xi[slices], **montager_args)[0]
+        if montager_args.get('output_grid_size', False):
+            m_out[:, :, n] = montager(xi[slices], **montager_args)[0]
+        else:
+            m0 = montager(xi[slices], **montager_args)
     montage2_args = montager_args.copy()
     # flip and transpose operations skipped on second time through montager
     montage2_args['transpose'] = False
