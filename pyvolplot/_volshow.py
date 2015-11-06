@@ -494,17 +494,18 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
         montage_kwargs['xi'] = x
 
         tmp = montage_kwargs.get('transpose', True)
-        if (tmp and nd >= 3) or (not tmp and nd < 3):
-            xticks = [x.shape[0], ]
-            yticks = [x.shape[1], ]
-        else:
-            yticks = [x.shape[0], ]
-            xticks = [x.shape[1], ]
 
         if nd >= 4:
             x, nrows, ncols = montager4d(**montage_kwargs)
         else:
             x, nrows, ncols = montager(**montage_kwargs)
+
+        if (tmp and x.ndim >= 3) or (not tmp and x.ndim < 3):
+            xticks = [x.shape[0], ]
+            yticks = [x.shape[1], ]
+        else:
+            yticks = [x.shape[0], ]
+            xticks = [x.shape[1], ]
 
         if do_overlays:
             # apply same montage to each of the overlays
