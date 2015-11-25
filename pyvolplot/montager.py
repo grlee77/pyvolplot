@@ -174,10 +174,6 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,
         else:
             return xo
 
-    if xi is None or xi == 'test':
-        montager_test()
-        return
-
     if xi.ndim > 4:
         print('ERROR in %s: >4D not done' % __name__)
     if xi.ndim == 4:
