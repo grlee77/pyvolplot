@@ -42,6 +42,10 @@ def _calc_rows(nx, ny, nz, row=None, col=None, aspect=1.4):
             col = np.ceil(nz / row)
     if not row:
         row = np.ceil(nz / col)
+    if row * col < nz:
+        raise ValueError(
+            "Specified {} rows and {} cols".format(row, col) +
+            " which is too few to hold {} subimages".format(nz))
     return int(row), int(col)
 
 
@@ -53,10 +57,50 @@ def montager4d(
     # TODO: support ndim=5 for RGBA input
     # TODO?: allow input < size 4, just pad size to ones on missing axes?
     xi = np.asanyarray(xi)
+
+    isRGB = montager_args.get('isRGB', False)
+    if isRGB:
+        if xi.shape[-1] < 3 or xi.shape[-1] > 4:
+            raise ValueError(
+                "if isRGB=True, the last dimension must be size 3 or 4")
+        if xi.shape[-1] == 4:
+            has_alpha = True
+        else:
+            has_alpha = False
+
+        xiR = xi[..., 0]
+        xiG = xi[..., 1]
+        xiB = xi[..., 2]
+
+        montage2_args = montager_args.copy()
+        montage2_args['output_grid_size'] = True
+        xoR, row2, col2 = montager4d(xiR, col2=col2, row2=row2, aspect2=aspect2,
+                                     axis=axis, **montage2_args)
+        xoR = xoR[..., np.newaxis]
+        montage2_args['output_grid_size'] = False
+        xoG = montager4d(xiG, col2=col2, row2=row2, aspect2=aspect2,
+                         axis=axis, **montager_args)
+        xoG = xoG[..., np.newaxis]
+        xoB = montager(xiB, col2=col2, row2=row2, aspect2=aspect2,
+                       axis=axis, **montager_args)
+        xoB = xoB[..., np.newaxis]
+        if has_alpha:
+            xiA = xi[..., 3]
+            xoA = montager(xiA, col2=col2, row2=row2, aspect2=aspect2,
+                           axis=axis, **montage2_args)
+            xoA = xoA[..., np.newaxis]
+            xo = np.concatenate((xoR, xoG, xoB, xoA), axis=-1)
+        else:
+            xo = np.concatenate((xoR, xoG, xoB), axis=-1)
+        if montager_args.get('output_grid_size', False):
+            return (xo, row2, col2)
+        else:
+            return xo
+
     if xi.ndim != 4:
         raise ValueError("montager4d requires 4d input")
-    if montager_args.get('isRGB', False):
-        raise ValueError("isRGB=True not currently supported")
+    #if montager_args.get('isRGB', False):
+    #    raise ValueError("isRGB=True not currently supported")
 
     nvols = xi.shape[axis]
     slices = [slice(None), ] * 4
@@ -80,7 +124,7 @@ def montager4d(
     montage2_args['flipx'] = False
     montage2_args['flipy'] = False
     montage2_args['flipz'] = False
-    montage2_args['isRGB'] = False
+    #montage2_args['isRGB'] = False
     montage2_args['col'] = col2
     montage2_args['row'] = row2
     if aspect2 is not None:
@@ -137,7 +181,7 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,
 
     if isRGB:  # call montager for R,G,B channels separately
         if xi.shape[-1] < 3 or xi.shape[-1] > 4:
-            raise Exception("if isRGB=True, the last dimension must be size 3")
+            raise Exception("if isRGB=True, the last dimension must be size 3 or 4")
         if xi.shape[-1] == 4:
             has_alpha = True
         else:

@@ -170,6 +170,7 @@ def _populate_ImageGrid(grid, x, transpose=False, isRGB=False,
 
 def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             show_lines=None, line_color='y', mask_nan=False, notick=False,
+            grid_rows=None,
             **kwargs):
     """ volume viewing utility.  Reshapes the volume data based on the desired
     mode and then plots using imshow.
@@ -269,7 +270,9 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
 
             if ax is None:
                 # Call volshow() for each individual volume
-                srow, scol = _calc_rows(1.0, 1.0, len(x))
+                grid_rows = kwargs.get('row', None)
+                grid_cols = kwargs.get('col', None)
+                srow, scol = _calc_rows(1.0, 1.0, len(x), grid_rows, grid_cols)
                 if False:  # use plt.subplots
                     # TODO: support aspect in _calc_rows?
                     fig, axes = plt.subplots(srow, scol)
@@ -580,7 +583,9 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
                               "use grid_labels to pass in the labels")
                 grid_label_kwargs.pop('title', None)
 
-        row, col = _calc_rows(*x.shape[:3])
+        grid_rows = kwargs.get('row', None)
+        grid_cols = kwargs.get('col', None)
+        row, col = _calc_rows(*x.shape[:3], row=grid_rows, col=grid_cols)
         grid = ImageGrid(fig, subplot, nrows_ncols=(row, col), axes_pad=.05)
 
         if 'transpose' not in kwargs:
