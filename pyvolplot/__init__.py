@@ -256,5 +256,3 @@ RcParams({'agg.path.chunksize': 0,
           'ytick.minor.width': 0.5})
 
 """
-
-

@@ -17,7 +17,7 @@ def calc_mips(x, stack_direction='h', transpose=True):
         for a in axes_to_pad:
             padw = max(ytarget_size - x.shape[a], 0)
             if padw % 2 == 0:
-                ypad_widths.append((padw / 2, padw / 2))
+                ypad_widths.append((padw // 2, padw // 2))
             else:
                 ypad_widths.append((padw // 2, padw - padw // 2))
         ypad_widths.append((0, 0))
