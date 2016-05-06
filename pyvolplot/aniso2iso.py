@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function, absolute_import
 import numpy as np
-from scipy.ndimage import affine_transform
 
 """
 slight modification of dipy.align.aniso2iso.resample
@@ -74,13 +73,16 @@ def resample_image(data, zooms, new_zooms, affine=None, order=1,
     >>> data2.shape
     (77, 77, 40)
     '''
+    try:
+        from scipy.ndimage import affine_transform
+    except ImportError:
+        raise ImportError("scipy is required in order to use resample_image")
 
     R = np.diag(np.array(new_zooms) / np.array(zooms))
 
     idx_spatial = list(np.arange(data.ndim))
     if data.ndim == 4:
         idx_spatial.remove(idx_spatial[time_axis])
-
 
     new_shape = np.array(zooms) / np.array(new_zooms) * \
         np.array(tuple(np.asarray(data.shape)[idx_spatial]))
