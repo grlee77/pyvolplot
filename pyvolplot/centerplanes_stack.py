@@ -49,7 +49,7 @@ def centerplanes_stack(x, stack_direction='h', transpose=True,
         for a in axes_to_pad:
             padw = max(ytarget_size - x.shape[a], 0) + 2 * npad
             if padw % 2 == 0:
-                ypad_widths.append((padw / 2, padw / 2))
+                ypad_widths.append((padw // 2, padw // 2))
             else:
                 ypad_widths.append((padw // 2, padw - padw // 2))
         ypad_widths.append((npad, npad))
@@ -72,7 +72,7 @@ def centerplanes_stack(x, stack_direction='h', transpose=True,
         for a in axes_to_pad:
             padw = max(xtarget_size - x.shape[a], 0) + 2 * npad
             if padw % 2 == 0:
-                xpad_widths.append((padw / 2, padw / 2))
+                xpad_widths.append((padw // 2, padw // 2))
             else:
                 xpad_widths.append((padw // 2, padw - padw // 2))
         xout = np.pad(np.abs(x[slice_centers[0], :, :]),
