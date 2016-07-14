@@ -40,6 +40,7 @@ def _calc_rows(nx, ny, nz, row=None, col=None, aspect=1.4):
             col = np.round(np.sqrt(nz * ny / nx * aspect))
         else:
             col = np.ceil(nz / row)
+        col = col
     if not row:
         row = np.ceil(nz / col)
     if row * col < nz:
@@ -262,7 +263,7 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,
     xo = np.zeros((ny * row, nx * col))
 
     for iz in range(nz):
-        iy = np.floor(iz / col)
+        iy = int(np.floor(iz / col))
         ix = iz - iy * col
         xo[iy * ny:(iy + 1) * ny, ix * nx:(ix + 1) * nx] = xi[:, :, iz].T
 
