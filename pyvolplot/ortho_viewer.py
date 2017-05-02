@@ -8,90 +8,144 @@ https://github.com/nipy/nibabel/blob/master/COPYING
 """
 from __future__ import division, print_function
 
-import numpy as np
 import weakref
 
+import numpy as np
+
+# from nibabel.viewers import OrthoSlicer3D
+# from nibabel.affines import voxel_sizes
 from nibabel.optpkg import optional_package
 from nibabel.orientations import aff2axcodes, axcodes2ornt
-# from nibabel.viewers import OrthoSlicer3D
 
-"""
-OrthoSlicer3Dv2 has two new features:
--, = keys decrement, increment the timepoint
-square bracket keys toggle between data and an optional data2 volume
-"""
+
+# """
+# OrthoSlicer3Dv2 has two new features:
+# -, = keys decrement, increment the timepoint
+# square bracket keys toggle between data and an optional data2 volume
+# """
+
+# TODO: after new nibabel is released, remove duplicates of voxel_sizes and
+#       OrthoSlicer3D made here.
+
+def voxel_sizes(affine):
+    r""" Return voxel size for each input axis given `affine`
+
+    The `affine` is the mapping between array (voxel) coordinates and mm
+    (world) coordinates.
+
+    The voxel size for the first voxel (array) axis is the distance moved in
+    world coordinates when moving one unit along the first voxel (array) axis.
+    This is the distance between the world coordinate of voxel (0, 0, 0) and
+    the world coordinate of voxel (1, 0, 0).  The world coordinate vector of
+    voxel coordinate vector (0, 0, 0) is given by ``v0 = affine.dot((0, 0, 0,
+    1)[:3]``.  The world coordinate vector of voxel vector (1, 0, 0) is
+    ``v1_ax1 = affine.dot((1, 0, 0, 1))[:3]``.  The final 1 in the voxel
+    vectors and the ``[:3]`` at the end are because the affine works on
+    homogenous coodinates.  The translations part of the affine is ``trans =
+    affine[:3, 3]``, and the rotations, zooms and shearing part of the affine
+    is ``rzs = affine[:3, :3]``. Because of the final 1 in the input voxel
+    vector, ``v0 == rzs.dot((0, 0, 0)) + trans``, and ``v1_ax1 == rzs.dot((1,
+    0, 0)) + trans``, and the difference vector is ``rzs.dot((0, 0, 0)) -
+    rzs.dot((1, 0, 0)) == rzs.dot((1, 0, 0)) == rzs[:, 0]``.  The distance
+    vectors in world coordinates between (0, 0, 0) and (1, 0, 0), (0, 1, 0),
+    (0, 0, 1) are given by ``rzs.dot(np.eye(3)) = rzs``.  The voxel sizes are
+    the Euclidean lengths of the distance vectors.  So, the voxel sizes are
+    the Euclidean lengths of the columns of the affine (excluding the last row
+    and column of the affine).
+
+    Parameters
+    ----------
+    affine : 2D array-like
+        Affine transformation array.  Usually shape (4, 4), but can be any 2D
+        array.
+
+    Returns
+    -------
+    vox_sizes : 1D array
+        Voxel sizes for each input axis of affine.  Usually 1D array length 3,
+        but in general has length (N-1) where input `affine` is shape (M, N).
+    """
+    top_left = affine[:-1, :-1]
+    return np.sqrt(np.sum(top_left ** 2, axis=0))
 
 
 class OrthoSlicer3D(object):
-    """Orthogonal-plane slicer.
+    """ Orthogonal-plane slice viewer.
 
-    OrthoSlicer3d expects 3-dimensional data, and by default it creates a
-    figure with 3 axes, one for each slice orientation.
+    OrthoSlicer3d expects 3- or 4-dimensional array data.  It treats
+    4D data as a sequence of 3D spatial volumes, where a slice over the final
+    array axis gives a single 3D spatial volume.
+
+    For 3D data, the default behavior is to create a figure with 3 axes, one
+    for each slice orientation of the spatial volume.
 
     Clicking and dragging the mouse in any one axis will select out the
     corresponding slices in the other two. Scrolling up and
     down moves the slice up and down in the current axis.
 
+    For 4D data, the fourth figure axis can be used to control which
+    3D volume is displayed.  Alternatively, the ``-`` key can be used to
+    decrement the displayed volume and the ``+`` or ``=`` keys can be used to
+    increment it.
+
     Example
     -------
     >>> import numpy as np
-    >>> a = np.sin(np.linspace(0,np.pi,20))
-    >>> b = np.sin(np.linspace(0,np.pi*5,20))
-    >>> data = np.outer(a,b)[..., np.newaxis]*a
+    >>> a = np.sin(np.linspace(0, np.pi, 20))
+    >>> b = np.sin(np.linspace(0, np.pi*5, 20))
+    >>> data = np.outer(a, b)[..., np.newaxis] * a
     >>> OrthoSlicer3D(data).show()  # doctest: +SKIP
     """
     # Skip doctest above b/c not all systems have mpl installed
-    def __init__(self, data, affine=None, axes=None, cmap='gray',
-                 pcnt_range=(1., 99.), figsize=(8, 8), title=None):
+    def __init__(self, data, affine=None, axes=None, title=None):
         """
         Parameters
         ----------
-        data : ndarray
+        data : array-like
             The data that will be displayed by the slicer. Should have 3+
             dimensions.
-        affine : array-like | None
+        affine : array-like or None, optional
             Affine transform for the data. This is used to determine
-            how the data should be sliced for plotting into the saggital,
+            how the data should be sliced for plotting into the sagittal,
             coronal, and axial view axes. If None, identity is assumed.
             The aspect ratio of the data are inferred from the affine
             transform.
-        axes : tuple of mpl.Axes | None, optional
+        axes : tuple of mpl.Axes or None, optional
             3 or 4 axes instances for the 3 slices plus volumes,
             or None (default).
-        cmap : str | instance of cmap, optional
-            String or cmap instance specifying colormap.
-        pcnt_range : array-like, optional
-            Percentile range over which to scale image for display.
-        figsize : tuple
-            Figure size (in inches) to use if axes are None.
+        title : str or None, optional
+            The title to display. Can be None (default) to display no
+            title.
         """
-        # Nest imports so that matplotlib.use() has the appropriate
-        # effect in testing
-        plt, _, _ = optional_package('matplotlib.pyplot')
-        mpl_img, _, _ = optional_package('matplotlib.image')
-        mpl_patch, _, _ = optional_package('matplotlib.patches')
+        # Use these late imports of matplotlib so that we have some hope that
+        # the test functions are the first to set the matplotlib backend. The
+        # tests set the backend to something that doesn't require a display.
+        self._plt = plt = optional_package('matplotlib.pyplot')[0]
+        mpl_patch = optional_package('matplotlib.patches')[0]
         self._title = title
         self._closed = False
 
         data = np.asanyarray(data)
         if data.ndim < 3:
             raise ValueError('data must have at least 3 dimensions')
+        if np.iscomplexobj(data):
+            raise TypeError("Complex data not supported")
         affine = np.array(affine, float) if affine is not None else np.eye(4)
-        if affine.ndim != 2 or affine.shape != (4, 4):
+        if affine.shape != (4, 4):
             raise ValueError('affine must be a 4x4 matrix')
         # determine our orientation
-        self._affine = affine.copy()
+        self._affine = affine
         codes = axcodes2ornt(aff2axcodes(self._affine))
         self._order = np.argsort([c[0] for c in codes])
         self._flips = np.array([c[1] < 0 for c in codes])[self._order]
         self._flips = list(self._flips) + [False]  # add volume dim
-        self._scalers = np.abs(self._affine).max(axis=0)[:3]
+        self._scalers = voxel_sizes(self._affine)
         self._inv_affine = np.linalg.inv(affine)
         # current volume info
         self._volume_dims = data.shape[3:]
         self._current_vol_data = data[:, :, :, 0] if data.ndim > 3 else data
         self._data = data
-        vmin, vmax = np.percentile(data, pcnt_range)
+        self._clim = np.percentile(data, (1., 99.))
         del data
 
         if axes is None:  # make the axes
@@ -113,7 +167,7 @@ class OrthoSlicer3D(object):
             #   <--  R          <--  t  -->
 
             fig, axes = plt.subplots(2, 2)
-            fig.set_size_inches(figsize, forward=True)
+            fig.set_size_inches((8, 8), forward=True)
             self._axes = [axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]]
             plt.tight_layout(pad=0.1)
             if self.n_volumes <= 1:
@@ -134,14 +188,14 @@ class OrthoSlicer3D(object):
         r = [self._scalers[self._order[2]] / self._scalers[self._order[1]],
              self._scalers[self._order[2]] / self._scalers[self._order[0]],
              self._scalers[self._order[1]] / self._scalers[self._order[0]]]
-        self._sizes = [self._data.shape[o] for o in self._order]
+        self._sizes = [self._data.shape[order] for order in self._order]
         for ii, xax, yax, ratio, label in zip([0, 1, 2], [1, 0, 0], [2, 2, 1],
                                               r, ('SAIP', 'SLIR', 'ALPR')):
             ax = self._axes[ii]
             d = np.zeros((self._sizes[yax], self._sizes[xax]))
-            im = self._axes[ii].imshow(d, vmin=vmin, vmax=vmax, aspect=1,
-                                       cmap=cmap, interpolation='nearest',
-                                       origin='lower')
+            im = self._axes[ii].imshow(
+                d, vmin=self._clim[0], vmax=self._clim[1], aspect=1,
+                cmap='gray', interpolation='nearest', origin='lower')
             self._ims.append(im)
             vert = ax.plot([0] * 2, [-0.5, self._sizes[yax] - 0.5],
                            color=(0, 1, 0), linestyle='-')[0]
@@ -173,7 +227,10 @@ class OrthoSlicer3D(object):
         # Set up volumes axis
         if self.n_volumes > 1 and len(self._axes) > 3:
             ax = self._axes[3]
-            ax.set_axis_bgcolor('k')
+            try:
+                ax.set_facecolor('k')
+            except AttributeError:  # old mpl
+                ax.set_axis_bgcolor('k')
             ax.set_title('Volumes')
             y = np.zeros(self.n_volumes + 1)
             x = np.arange(self.n_volumes + 1) - 0.5
@@ -200,10 +257,10 @@ class OrthoSlicer3D(object):
 
         # actually set data meaningfully
         self._position = np.zeros(4)
-        self._position[3] = 1.  # convenience for affine multn
+        self._position[3] = 1.  # convenience for affine multiplication
         self._changing = False  # keep track of status to avoid loops
         self._links = []  # other viewers this one is linked to
-        plt.draw()
+        self._plt.draw()
         for fig in self._figs:
             fig.canvas.draw()
         self._set_volume_index(0, update_slices=False)
@@ -222,22 +279,25 @@ class OrthoSlicer3D(object):
     def show(self):
         """Show the slicer in blocking mode; convenience for ``plt.show()``
         """
-        plt, _, _ = optional_package('matplotlib.pyplot')
-        plt.show()
+        self._plt.show()
 
     def close(self):
         """Close the viewer figures
         """
         self._cleanup()
-        plt, _, _ = optional_package('matplotlib.pyplot')
         for f in self._figs:
-            plt.close(f)
+            self._plt.close(f)
 
     def _cleanup(self):
         """Clean up before closing"""
         self._closed = True
         for link in list(self._links):  # make a copy before iterating
             self._unlink(link())
+
+    def draw(self):
+        """Redraw the current image"""
+        for fig in self._figs:
+            fig.canvas.draw()
 
     @property
     def n_volumes(self):
@@ -248,6 +308,38 @@ class OrthoSlicer3D(object):
     def position(self):
         """The current coordinates"""
         return self._position[:3].copy()
+
+    @property
+    def figs(self):
+        """A tuple of the figure(s) containing the axes"""
+        return tuple(self._figs)
+
+    @property
+    def cmap(self):
+        """The current colormap"""
+        return self._cmap
+
+    @cmap.setter
+    def cmap(self, cmap):
+        for im in self._ims:
+            im.set_cmap(cmap)
+        self._cmap = cmap
+        self.draw()
+
+    @property
+    def clim(self):
+        """The current color limits"""
+        return self._clim
+
+    @clim.setter
+    def clim(self, clim):
+        clim = np.array(clim, float)
+        if clim.shape != (2,):
+            raise ValueError('clim must be a 2-element array-like')
+        for im in self._ims:
+            im.set_clim(clim)
+        self._clim = tuple(clim)
+        self.draw()
 
     def link_to(self, other):
         """Link positional changes between two canvases
@@ -342,11 +434,11 @@ class OrthoSlicer3D(object):
         for ii, (size, idx) in enumerate(zip(self._sizes, idxs)):
             self._data_idx[ii] = max(min(int(round(idx)), size - 1), 0)
         for ii in range(3):
-            # saggital: get to S/A
+            # sagittal: get to S/A
             # coronal: get to S/L
             # axial: get to A/L
-            data = np.take(self._current_vol_data, self._data_idx[ii],
-                           axis=self._order[ii])
+            data = np.rollaxis(self._current_vol_data,
+                               axis=self._order[ii])[self._data_idx[ii]]
             xax = [1, 0, 0][ii]
             yax = [2, 2, 1][ii]
             if self._order[xax] < self._order[yax]:
@@ -373,7 +465,7 @@ class OrthoSlicer3D(object):
 
         # Update volume trace
         if self.n_volumes > 1 and len(self._axes) > 3:
-            idx = [None, Ellipsis] * 3
+            idx = [slice(None)] * len(self._axes)
             for ii in range(3):
                 idx[self._order[ii]] = self._data_idx[ii]
             vdata = self._data[idx].ravel()
@@ -443,6 +535,16 @@ class OrthoSlicer3D(object):
         """Handle mpl keypress events"""
         if event.key is not None and 'escape' in event.key:
             self.close()
+        elif event.key in ["=", '+']:
+            # increment volume index
+            new_idx = min(self._data_idx[3] + 1, self.n_volumes)
+            self._set_volume_index(new_idx, update_slices=True)
+            self._draw()
+        elif event.key == '-':
+            # decrement volume index
+            new_idx = max(self._data_idx[3] - 1, 0)
+            self._set_volume_index(new_idx, update_slices=True)
+            self._draw()
 
     def _draw(self):
         """Update all four (or three) plots"""
@@ -463,11 +565,31 @@ class OrthoSlicer3D(object):
 
 
 class OrthoSlicer3Dv2(OrthoSlicer3D):
-    def __init__(self, data, data2=None, affine=None, axes=None, cmap='gray',
-                 pcnt_range=(1., 99.), figsize=(8, 8), title=None):
+    def __init__(self, data, data2=None, affine=None, axes=None,
+                 title=None, pcnt_range=(1., 99.)):
+        """
+        Parameters
+        ----------
+        data : array-like
+            The data that will be displayed by the slicer. Should have 3+
+            dimensions.
+        affine : array-like or None, optional
+            Affine transform for the data. This is used to determine
+            how the data should be sliced for plotting into the sagittal,
+            coronal, and axial view axes. If None, identity is assumed.
+            The aspect ratio of the data are inferred from the affine
+            transform.
+        axes : tuple of mpl.Axes or None, optional
+            3 or 4 axes instances for the 3 slices plus volumes,
+            or None (default).
+        title : str or None, optional
+            The title to display. Can be None (default) to display no
+            title.
+        pcnt_range : array-like, optional
+            Percentile range over which to scale image for display.
+        """
         super(OrthoSlicer3Dv2, self).__init__(
-            data=data, affine=affine, axes=axes, cmap=cmap,
-            pcnt_range=pcnt_range, figsize=figsize, title=title)
+            data=data, affine=affine, axes=axes, title=title)
         self._data1 = data
 
         if data2 is not None:
@@ -488,12 +610,12 @@ class OrthoSlicer3Dv2(OrthoSlicer3D):
         """new keypress events"""
         if event.key in ["=", '+']:
             # increment volume index
-            new_idx = min(self._data_idx[3]+1, self.n_volumes)
+            new_idx = min(self._data_idx[3] + 1, self.n_volumes)
             self._set_volume_index(new_idx, update_slices=True)
             self._draw()
         elif event.key == '-':
             # increment volume index
-            new_idx = max(self._data_idx[3]-1, 0)
+            new_idx = max(self._data_idx[3] - 1, 0)
             self._set_volume_index(new_idx, update_slices=True)
             self._draw()
         elif self._data2 is not None and event.key in ["[", "]"]:
@@ -579,13 +701,14 @@ class OrthoSlicer3Dv2(OrthoSlicer3D):
 
         # Update volume trace
         if self.n_volumes > 1 and len(self._axes) > 3:
-            idx = [None, Ellipsis] * 3
+            idx = [slice(None)] * len(self._axes)
             for ii in range(3):
                 idx[self._order[ii]] = self._data_idx[ii]
             vdata = self._data[idx].ravel()
             vdata = np.concatenate((vdata, [vdata[-1]]))
             self._volume_ax_objs['patch'].set_x(self._data_idx[3] - 0.5)
             self._volume_ax_objs['step'].set_ydata(vdata)
+            self._axes[-1].set_ylim([0.95*vdata.min(), 1.05*vdata.max()])
         if notify:
             self._notify_links()
         self._changing = False

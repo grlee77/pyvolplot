@@ -1,16 +1,14 @@
-# -*- coding: utf-8 -*-
 """
 **Create Image Montage**
 """
 
-# -*- coding: utf-8 -*-
 from __future__ import division, print_function, absolute_import
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def add_lines(e, color='w', ncells_horizontal=1, ncells_vertical=1):
-    """ takes output from montager and the number of rows/cols and plots lines
+    """Takes output from montager and the number of rows/cols and plots lines
     separating the cells """
 
     e = np.asanyarray(e)
@@ -100,7 +98,7 @@ def montager4d(
 
     if xi.ndim != 4:
         raise ValueError("montager4d requires 4d input")
-    #if montager_args.get('isRGB', False):
+    # if montager_args.get('isRGB', False):
     #    raise ValueError("isRGB=True not currently supported")
 
     nvols = xi.shape[axis]
@@ -125,7 +123,7 @@ def montager4d(
     montage2_args['flipx'] = False
     montage2_args['flipy'] = False
     montage2_args['flipz'] = False
-    #montage2_args['isRGB'] = False
+    # montage2_args['isRGB'] = False
     montage2_args['col'] = col2
     montage2_args['row'] = row2
     if aspect2 is not None:
@@ -182,7 +180,8 @@ def montager(xi, col=None, row=None, aspect=1.4, transpose=False, isRGB=False,
 
     if isRGB:  # call montager for R,G,B channels separately
         if xi.shape[-1] < 3 or xi.shape[-1] > 4:
-            raise Exception("if isRGB=True, the last dimension must be size 3 or 4")
+            raise Exception(
+                "if isRGB=True, the last dimension must be size 3 or 4")
         if xi.shape[-1] == 4:
             has_alpha = True
         else:

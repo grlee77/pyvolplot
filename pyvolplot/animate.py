@@ -41,6 +41,7 @@ def cycle_frames(img_vols, time_axis=-1):
     nframes = img_vols.shape[-1]
     im = plt.imshow(montage_func(img_vols[slices]),
                     cmap=plt.get_cmap('gray'))
+    plt.axis('off')
 
     def updatefig(frame, *args):
         frame = frame % nframes
