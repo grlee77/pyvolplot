@@ -600,8 +600,9 @@ class OrthoSlicer3Dv2(OrthoSlicer3D):
 
         vmin, vmax = np.percentile(data, pcnt_range)
         self._data1_range = vmin, vmax
-        vmin2, vmax2 = np.percentile(data2, pcnt_range)
-        self._data2_range = vmin2, vmax2
+        if data2 is not None:
+            vmin2, vmax2 = np.percentile(data2, pcnt_range)
+            self._data2_range = vmin2, vmax2
         # TODO:  bug:  timecourse trace disappears when data2 is shown
 
     def _on_keypress(self, event):
