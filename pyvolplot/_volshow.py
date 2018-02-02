@@ -653,8 +653,14 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             for idx, overlay in enumerate(overlay_list):
                 masked_overlay(overlay, **overlay_args_list[idx])
     else:
-        im = ax.matshow(x, **kwargs)
-        info_dict['imshow_func'] = 'matshow'
+        try:
+            im = ax.matshow(x, **kwargs)
+            info_dict['imshow_func'] = 'matshow'
+        except KeyError:
+            # kludge: If matshow failed, try imshow as a fallback
+            # bug in matshow related to "label2On" axis property?
+            im = ax.imshow(x, **kwargs)
+            info_dict['imshow_func'] = 'imshow'
 
     info_dict['imshow_kwargs'] = kwargs
 
