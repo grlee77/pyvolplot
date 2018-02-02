@@ -64,7 +64,7 @@ def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
     else:
         if alpha_image.max() > 1 or alpha_image.min() < 0:
             raise ValueError("alpha_image must lie in range [0, 1]")
-        alpha_mask = np.ones_like(alpha_image)
+        alpha_mask = np.ones(alpha_image.shape, dtype=np.bool)
         # alpha_mask[overlay_image < vmin] = 0
     alpha_mask = alpha_mask | (overlay_image < vmin)
     image = (np.clip(overlay_image, vmin, vmax) - vmin) / (vmax - vmin)
@@ -85,4 +85,4 @@ def masked_overlay(overlay_image, ax=None, cmap=plt.cm.hot,
     else:
         return (dict(X=image_RGBA, cmap=cmap, vmin=vmin, vmax=vmax),
                 dict(ax=ax, colorbar_kwargs=colorbar_kwargs))
-    return
+    return im
