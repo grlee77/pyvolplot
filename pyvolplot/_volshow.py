@@ -14,11 +14,8 @@ from .centerplanes_stack import centerplanes_stack, centerplanes_stack_RGB
 from .mips import calc_mips
 from .utils import add_inner_title
 from .overlay import masked_overlay
-try:
-    from matplotlib import is_string_like
-except ImportError:
-    # matplotlib 2.1
-    from matplotlib.cbook import is_string_like
+from .utils import is_string_like
+
 
 # Note: visvis also has function called volshow, but that one is for displaying
 # 3D volumes using OpenGL

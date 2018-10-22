@@ -2,6 +2,15 @@
 from matplotlib.offsetbox import AnchoredText
 
 
+def is_string_like(obj):
+    """Check if obj is string."""
+    try:
+        obj + ''
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def add_inner_title(ax, title, loc=9, size=None, prop=None, **kwargs):
     """  Add a title within an image using AnchoredText().
 
