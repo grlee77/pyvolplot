@@ -475,7 +475,12 @@ def volshow(x, mode=None, ax=None, fig=None, subplot=111, cplx_to_abs=True,
             warnings.warn("using fig from specified axis instead of provided",
                           "fig input")
         fig = ax.get_figure()
-        if isinstance(ax, mpl_toolkits.axes_grid1.axes_divider.LocatableAxes):
+        if isinstance(ax, mpl_toolkits.axes_grid1.mpl_axes.Axes):
+            # matplotlib 3.0.0 deprecated LocatableAxes
+            ax_locator = ax.get_axes_locator()
+            subplot = ax_locator.get_subplotspec()
+        elif isinstance(ax,
+                        mpl_toolkits.axes_grid1.axes_divider.LocatableAxes):
             ax_locator = ax.get_axes_locator()
             subplot = ax_locator.get_subplotspec()
         else:
