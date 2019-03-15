@@ -9,7 +9,8 @@ import warnings
 def subplot_stack(x, Y, fig=None, ncols=None, nrows=None, title='',
                   colors=['k', 'b'], hspace=0, wspace=0, use_yticks=False,
                   use_xticks=True, enumerate_subplots=False, ytick_bins=None,
-                  xtick_bins=None, ylabels=None, xlabels=None, legends=None):
+                  xtick_bins=None, ylabels=None, xlabels=None, legends=None,
+                  ylim=None):
     """ Stack a series of 1D plots
 
         support for calls to an existing fig is still experimental.  should
@@ -145,6 +146,9 @@ def subplot_stack(x, Y, fig=None, ncols=None, nrows=None, title='',
                     plt.setp(ax.get_yticklabels(), visible=False)
             else:
                 plt.setp(ax.get_yticklabels(), visible=False)
+
+            if ylim is not None:
+                ax.set_ylim(ylim)
 
             if title and r == 0 and c == middle_col:
                 ax.set_title(title)
